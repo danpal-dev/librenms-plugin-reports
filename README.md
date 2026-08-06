@@ -73,6 +73,9 @@ chown -R librenms:librenms /opt/librenms/app/Plugins/Reports
 ```bash
 cd /opt/librenms/app/Plugins/Reports
 git pull
+chown -R librenms:librenms .
+sudo -u librenms php artisan view:cache
+sudo -u librenms php artisan cache:clear
 ```
 
 ### Desinstalar
