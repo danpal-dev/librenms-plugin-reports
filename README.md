@@ -70,6 +70,8 @@ chown -R librenms:librenms /opt/librenms/app/Plugins/Reports
 
 ### Actualizar
 
+> Repositorio: https://github.com/danpal-dev/librenms-plugin-reports
+
 ```bash
 cd /opt/librenms/app/Plugins/Reports
 git pull
