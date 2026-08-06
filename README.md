@@ -16,24 +16,34 @@ Plugin que añade un módulo de **reportes profesionales** de rendimiento y disp
 
 ## Características
 
+### Reportes
 - **Tipos de reporte**: ancho de banda, paquetes, recursos del sistema (CPU/memoria) y disponibilidad.
 - **Períodos configurables**: personalizado, diario, semanal, mensual y anual.
+- **Checkbox "Incluir último día completo"**: en rangos personalizados, extiende el período hasta las 23:59:59 del día final.
 - **Exportación** a CSV, Excel y PDF desde la propia interfaz.
 - **Bitácora de auditoría** de reportes generados, con opción de eliminar entradas (solo admin).
-- **Disponibilidad con detalle de eventos**: fecha y hora de inicio, recuperación y duración de cada caída.
-- **SLA mensual**: máximo de 43 minutos de indisponibilidad por mes, calculado con precisión de segundos.
-- Etiqueta e icono del menú configurables desde el panel de administración.
-- Accesible para todos los usuarios autenticados.
 
-### Política de disponibilidad
+### Gráficas
+- **Tipo de gráfica configurable**: línea suave (área rellena), línea simple, barras verticales u horizontales.
+- **Paleta de colores armónica**: azul, teal, violeta, ámbar y naranja; diferenciados del umbral (rojo).
+- **Umbral de velocidad contratada**: se muestra siempre como línea discontinua roja independientemente del tipo de gráfica seleccionado.
 
-- El período mensual permite hasta 43 minutos de indisponibilidad, incluidos exactamente 43:00 minutos.
-- El período anual aplica 12 umbrales mensuales.
-- Los períodos personalizados usan el número de meses equivalente, con un mínimo de un mes.
+### Disponibilidad y SLA
+- **Disponibilidad con detalle de eventos**: fecha/hora de inicio, recuperación y duración de cada caída.
+- **Gráfica de disponibilidad diaria**: evolución día a día del porcentaje de uptime con línea de referencia SLA.
+- **SLA por dispositivo**: objetivo de disponibilidad configurable individualmente (p. ej. 99.9 %). Se almacena en `devices_attribs` y se muestra como línea discontinua en la gráfica.
+- **SLA por defecto**: 43 minutos de indisponibilidad por mes cuando no hay SLA específico configurado.
 - Los intervalos de caída solapados se consolidan antes de calcular la disponibilidad.
-- La tabla web separa el resumen ejecutivo del detalle de eventos.
 
-Las acciones de la bitácora requieren permisos de administrador y solicitudes POST protegidas con CSRF. Las exportaciones CSV neutralizan valores que una hoja de cálculo podría interpretar como fórmulas.
+### Configuración de umbrales
+- **Velocidad contratada por puerto**: agrega un umbral de Mbps por interfaz; se valida unicidad dispositivo-puerto.
+- **SLA por dispositivo**: presets rápidos (99.9 % / 99.5 % / 99.0 % / 98.0 %), preview de downtime en tiempo real y tabla con badges de color por nivel de SLA.
+
+### General
+- Dropdown de dispositivos muestra el campo `display` cuando está disponible.
+- Etiqueta, icono, título y subtítulo del menú configurables desde el panel de administración.
+- Accesible para todos los usuarios autenticados; acciones de administración protegidas por política de autorización.
+- Las exportaciones CSV neutralizan valores que una hoja de cálculo podría interpretar como fórmulas.
 
 ---
 
@@ -78,16 +88,25 @@ rm -rf /opt/librenms/app/Plugins/Reports
 
 ## Configuración
 
-Los administradores pueden personalizar el plugin en:
+Los administradores pueden personalizar el plugin en **Plugins → Reports → Settings**.
 
-**Plugins → Reports → Settings**
+### Apariencia
 
 | Opción | Descripción |
 |---|---|
-| Menu label | Texto que aparece en el menú de navegación |
-| Menu icon | Icono FontAwesome del menú (ej. `fa-line-chart`) |
-| Page title | Título de la página de reportes |
-| Page subtitle | Subtítulo descriptivo de la página |
+| Etiqueta de menú | Texto que aparece en el menú de navegación |
+| Icono FontAwesome | Icono del menú (ej. `fa-line-chart`) |
+| Título principal | Encabezado del banner de la página |
+| Subtítulo | Descripción breve bajo el título |
+| Tipo de gráfica | `line` · `line_clean` · `bar` · `bar_h` |
+
+### Umbrales de velocidad contratada
+
+Agrega por dispositivo y puerto la velocidad contratada en Mbps. Se renderiza como línea discontinua roja en los reportes de ancho de banda.
+
+### SLA por dispositivo
+
+Define el porcentaje de disponibilidad objetivo para cada equipo (90 – 100 %). Se almacena en la tabla `devices_attribs` con `attrib_type = 'device_sla_target'` y se usa como línea de referencia en la gráfica de disponibilidad.
 
 ---
 
