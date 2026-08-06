@@ -118,6 +118,22 @@ Define el porcentaje de disponibilidad objetivo para cada equipo (90 – 100 %).
 - LibreNMS con soporte de plugins (sistema de hooks `app/Plugins`).
 - PHP 8.1+
 
+## Base de datos
+
+El plugin **no crea tablas nuevas**. Usa tablas estándar de LibreNMS que ya existen en cualquier instalación:
+
+| Tabla | Uso | Columnas escritas |
+|---|---|---|
+| `devices_attribs` | SLA por dispositivo | `attrib_type = 'device_sla_target'`, `attrib_value` |
+| `devices_attribs` | Velocidad contratada por puerto | `attrib_type = 'port_<port_id>_contract_bandwidth'`, `attrib_value` |
+| `plugins` | Ajustes del plugin (label, icon, chart_type…) | `settings` (JSON) |
+
+Para eliminar todos los datos del plugin de la BD al desinstalar:
+
+```sql
+DELETE FROM devices_attribs WHERE attrib_type = 'device_sla_target' OR attrib_type LIKE 'port_%_contract_bandwidth';
+```
+
 ---
 
 ## Autor
