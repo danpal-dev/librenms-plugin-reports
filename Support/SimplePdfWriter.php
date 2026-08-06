@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Plugins\Reports\Support;
 
 /**
- * Pure-PHP PDF generator — A4 portrait, no external dependencies.
+ * Pure-PHP PDF generator — A4 landscape, no external dependencies.
  * Uses PDF drawing operators: rectangles, lines, text (Helvetica / Helvetica-Bold).
  */
 class SimplePdfWriter
 {
-    private const PAGE_W  = 595;
-    private const PAGE_H  = 842;
+    private const PAGE_W  = 842;
+    private const PAGE_H  = 595;
     private const M_LEFT  = 30;
     private const M_RIGHT = 30;
     private const M_TOP   = 30;
@@ -194,8 +194,8 @@ class SimplePdfWriter
         $pageObjNums = [];
 
         $objects[1]         = '<< /Type /Catalog /Pages 2 0 R >>';
-        $objects[$fontReg]  = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
-        $objects[$fontBold] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+        $objects[$fontReg]  = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+        $objects[$fontBold] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
 
         foreach ($pages as $cmds) {
             $stream        = implode('', $cmds);
@@ -249,9 +249,11 @@ class SimplePdfWriter
 
     private function pdfEscape(string $text): string
     {
+        $encoded = iconv('UTF-8', 'Windows-1252//TRANSLIT', $text);
+        $text = $encoded === false ? $text : $encoded;
         $text = str_replace('\\', '\\\\', $text);
         $text = str_replace('(', '\\(', $text);
         $text = str_replace(')', '\\)', $text);
-        return preg_replace('/[^\x20-\x7E]/', '?', $text) ?? '';
+        return preg_replace('/[^\x20-\x7E\x80-\xFF]/', '?', $text) ?? '';
     }
 }

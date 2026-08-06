@@ -12,6 +12,10 @@ class Page extends PageHook
 {
     private const STEP_DAY = 86400;
     private const STEP_HOUR = 3600;
+    private const SLA_DOWNTIME_MINUTES_PER_MONTH = 43.0;
+
+    private array $availabilityMetrics = [];
+    private array $availabilityEvents = [];
 
     public function authorize(\Illuminate\Contracts\Auth\Authenticatable $user): bool
     {
@@ -20,35 +24,13 @@ class Page extends PageHook
 
     public function data(array $settings = []): array
     {
-        $allowedActions = ['view', 'export_csv', 'export_excel', 'export_pdf', 'delete_log_entry', 'clear_log'];
+        $allowedActions = ['view', 'export_csv', 'export_excel', 'export_pdf'];
         $allowedReports = ['bandwidth', 'packets', 'resources', 'availability'];
         $allowedPeriods = ['custom', 'daily', 'weekly', 'monthly', 'annual'];
 
-        $action = request()->query('action', 'view');
+        $action = request()->input('action', 'view');
         if (! in_array($action, $allowedActions, true)) {
             $action = 'view';
-        }
-
-        // Manejo de eliminación de bitácora (solo admin)
-        if ($action === 'delete_log_entry' || $action === 'clear_log') {
-            $user = auth()->user();
-            if (! $user || ! $user->can('admin')) {
-                abort(403, 'No autorizado.');
-            }
-
-            if ($action === 'clear_log') {
-                $this->clearAuditLog();
-            } else {
-                $lineIndex = (int) request()->query('line_index', -1);
-                if ($lineIndex >= 0) {
-                    $this->deleteAuditLogEntry($lineIndex);
-                }
-            }
-
-            // Redirigir para evitar reenvío en recarga
-            $redirectUrl = url('plugin/Reports') . '#audit-log';
-            header('Location: ' . $redirectUrl);
-            exit;
         }
 
         $reportType = request()->query('report_type', 'bandwidth');
@@ -85,6 +67,7 @@ class Page extends PageHook
 
         $dateFrom = $this->validateDate((string) request()->query('date_from', $defaultFrom), $defaultFrom);
         $dateTo = $this->validateDate((string) request()->query('date_to', $defaultTo), $defaultTo);
+        $includeLastDay = (bool) request()->query('include_last_day', false);
         if ($dateFrom > $dateTo) {
             $tmp = $dateFrom;
             $dateFrom = $dateTo;
@@ -92,7 +75,14 @@ class Page extends PageHook
         }
 
         $startTs = (new DateTime($dateFrom))->setTime(0, 0, 0)->getTimestamp();
-        $endTs = (new DateTime($dateTo))->setTime(23, 59, 59)->getTimestamp();
+        if ($period === 'custom' && ! $includeLastDay) {
+            $endTs = (new DateTime($dateTo))->setTime(0, 0, 0)->getTimestamp();
+            if ($endTs <= $startTs) {
+                $endTs = $startTs + self::STEP_DAY;
+            }
+        } else {
+            $endTs = (new DateTime($dateTo))->setTime(23, 59, 59)->getTimestamp();
+        }
 
         $reportLabels = [
             'bandwidth' => 'Ancho de Banda',
@@ -110,9 +100,18 @@ class Page extends PageHook
         ];
 
         $allDevices = $this->getDevices();
-        $allPorts = $deviceId > 0 ? $this->getPorts($deviceId) : [];
         $device = $deviceId > 0 ? $this->getDevice($deviceId) : null;
-        $port = $portId > 0 ? $this->getPort($portId) : null;
+        $allPorts = $device ? $this->getPorts((int) $device->device_id) : [];
+        $port = ($device && $portId > 0) ? $this->getPort($portId, (int) $device->device_id) : null;
+
+        // Obtener velocidad contratada del puerto actual (solo lectura)
+        $contractBandwidth = 0;
+        if ($port && $device) {
+            $contractBandwidth = $this->getContractBandwidth((int) $port->port_id);
+        }
+
+        // Obtener SLA objetivo configurado para el dispositivo
+        $deviceSla = $deviceId > 0 ? $this->getDeviceSla($deviceId) : 0.0;
 
         $errorMessage = '';
         $reportData = [];
@@ -223,21 +222,24 @@ class Page extends PageHook
             };
 
             if ($reportType === 'bandwidth') {
-                $inVals  = $floatCol($reportData, 'Entrada (Mbps)');
-                $outVals = $floatCol($reportData, 'Salida (Mbps)');
-                $inGb    = $floatCol($reportData, 'Total In (GB)');
-                $outGb   = $floatCol($reportData, 'Total Out (GB)');
+                $inVals   = $floatCol($reportData, 'Entrada Prom (Mbps)');
+                $outVals  = $floatCol($reportData, 'Salida Prom (Mbps)');
+                $inPicos  = $floatCol($reportData, 'Entrada Pico (Mbps)');
+                $outPicos = $floatCol($reportData, 'Salida Pico (Mbps)');
+                $inGb     = $floatCol($reportData, 'Total In (GB)');
+                $outGb    = $floatCol($reportData, 'Total Out (GB)');
                 $summary = [
                     'type'          => 'bandwidth',
-                    'avg_in'        => count($inVals)  ? round(array_sum($inVals)  / count($inVals),  4) : null,
-                    'max_in'        => count($inVals)  ? (float) max($inVals)  : null,
-                    'avg_out'       => count($outVals) ? round(array_sum($outVals) / count($outVals), 4) : null,
-                    'max_out'       => count($outVals) ? (float) max($outVals) : null,
-                    'total_in_gb'   => count($inGb)   ? round(array_sum($inGb),   3) : null,
-                    'total_out_gb'  => count($outGb)  ? round(array_sum($outGb),  3) : null,
+                    'avg_in'        => count($inVals)   ? round(array_sum($inVals)  / count($inVals),  2) : null,
+                    'max_in'        => count($inPicos)  ? (float) max($inPicos)  : null,
+                    'avg_out'       => count($outVals)  ? round(array_sum($outVals) / count($outVals), 2) : null,
+                    'max_out'       => count($outPicos) ? (float) max($outPicos) : null,
+                    'total_in_gb'   => count($inGb)     ? round(array_sum($inGb),  1) : null,
+                    'total_out_gb'  => count($outGb)    ? round(array_sum($outGb), 1) : null,
                     'chart_labels'  => array_column($reportData, 'Fecha'),
-                    'chart_in'      => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Entrada (Mbps)')),
-                    'chart_out'     => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Salida (Mbps)')),
+                    'chart_in'      => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Entrada Prom (Mbps)')),
+                    'chart_out'     => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Salida Prom (Mbps)')),
+                    'contract_bandwidth' => $contractBandwidth > 0 ? (int) $contractBandwidth : 0,
                 ];
             } elseif ($reportType === 'packets') {
                 $eIn  = $floatCol($reportData, 'Errores In');
@@ -282,19 +284,48 @@ class Page extends PageHook
             } elseif ($reportType === 'availability' && ! empty($reportData)) {
                 $row         = $reportData[0];
                 $avail       = (float) ($row['Disponibilidad (%)'] ?? 0);
-                $hrsDown     = (float) ($row['Hrs Caido'] ?? 0);
+                $downSeconds = (int) ($this->availabilityMetrics['down_seconds'] ?? 0);
+                $hrsDown     = $downSeconds / self::STEP_HOUR;
 
-                // SLA: máximo 43 min de downtime por mes (proporcional al periodo)
-                // periodDays se deriva de Hrs Totales (misma fuente que el cálculo de disponibilidad)
                 $hrsTotal  = (float) ($row['Hrs Totales'] ?? 0);
                 $periodDays = $hrsTotal > 0 ? $hrsTotal / 24.0 : max(1, ($endTs - $startTs) / 86400);
-                $slaThresholdMins = 43.0 * ($periodDays / 30.0);   // minutos permitidos
-                $slaThresholdHrs  = $slaThresholdMins / 60.0;
+                $slaMonths = $this->slaMonths($period, $periodDays);
 
-                $slaOk = $hrsDown <= $slaThresholdHrs;
+                // Usar SLA configurado por dispositivo si existe; si no, el hardcoded (99.9%)
+                if ($deviceSla > 0) {
+                    $slaTargetPct     = $deviceSla;
+                    $downtimeRatio    = (100.0 - $deviceSla) / 100.0;
+                    $slaThresholdMins = $downtimeRatio * 30 * 24 * 60 * $slaMonths;
+                } else {
+                    $slaTargetPct     = round(100.0 - (self::SLA_DOWNTIME_MINUTES_PER_MONTH / (30 * 24 * 60)) * 100, 3);
+                    $slaThresholdMins = self::SLA_DOWNTIME_MINUTES_PER_MONTH * $slaMonths;
+                }
+                $slaThresholdHrs = $slaThresholdMins / 60.0;
+
+                $slaOk = $this->compliesWithSla($downSeconds, $slaThresholdMins);
                 $sla   = $slaOk
                     ? ['label' => 'Cumple SLA', 'class' => 'success']
                     : ['label' => 'Bajo SLA',   'class' => 'danger'];
+
+                // Construir gráfica diaria de disponibilidad
+                $dailyLabels = [];
+                $dailyAvail  = [];
+                $cursor = $startTs;
+                $mergedIntervals = $this->getMergedIntervals();
+                while ($cursor < $endTs) {
+                    $dayEnd = min($cursor + self::STEP_DAY, $endTs);
+                    $dayDownSecs = 0;
+                    foreach ($mergedIntervals as [$iStart, $iEnd]) {
+                        $overlap = min($iEnd, $dayEnd) - max($iStart, $cursor);
+                        if ($overlap > 0) {
+                            $dayDownSecs += $overlap;
+                        }
+                    }
+                    $dayTotal = $dayEnd - $cursor;
+                    $dailyLabels[] = date('Y-m-d', $cursor);
+                    $dailyAvail[]  = $dayTotal > 0 ? round((($dayTotal - $dayDownSecs) / $dayTotal) * 100, 4) : 100.0;
+                    $cursor = $dayEnd;
+                }
 
                 $summary = [
                     'type'                => 'availability',
@@ -303,9 +334,13 @@ class Page extends PageHook
                     'hrs_down'            => $hrsDown,
                     'n_outages'           => (int)   ($row['N Caidas']  ?? 0),
                     'sla'                 => $sla,
+                    'sla_target_pct'      => $slaTargetPct,
                     'sla_threshold_hrs'   => round($slaThresholdHrs, 4),
                     'sla_threshold_mins'  => round($slaThresholdMins, 1),
+                    'sla_months'          => $slaMonths,
                     'period_days'         => round($periodDays, 1),
+                    'chart_labels'        => $dailyLabels,
+                    'chart_avail'         => $dailyAvail,
                 ];
             }
         }
@@ -317,13 +352,15 @@ class Page extends PageHook
             'period' => $period,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
+            'include_last_day' => $includeLastDay ? '1' : '0',
         ];
 
-        $recentAudits = $this->getRecentAudits(20);
+        $recentAudits = auth()->user()?->can('admin') ? $this->getRecentAudits(20) : [];
 
         return [
             'title' => (string) ($settings['page_title'] ?? 'Reportes'),
             'subtitle' => (string) ($settings['page_subtitle'] ?? 'Visualizacion profesional de desempeno y disponibilidad para toma de decisiones.'),
+            'chart_type' => (string) ($settings['chart_type'] ?? 'line'),
             'report_type' => $reportType,
             'report_labels' => $reportLabels,
             'period' => $period,
@@ -332,6 +369,7 @@ class Page extends PageHook
             'port_id' => $portId,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
+            'include_last_day' => $includeLastDay,
             'today' => $today,
             'all_devices' => $allDevices,
             'all_ports' => $allPorts,
@@ -339,11 +377,13 @@ class Page extends PageHook
             'port' => $port,
             'error_message' => $errorMessage,
             'report_data' => $reportData,
+            'availability_events' => $this->availabilityEvents,
             'summary' => $summary,
             'recent_audits' => $recentAudits,
             'export_csv_url' => url('plugin/Reports') . '?' . http_build_query(array_merge($baseParams, ['action' => 'export_csv'])),
             'export_excel_url' => url('plugin/Reports') . '?' . http_build_query(array_merge($baseParams, ['action' => 'export_excel'])),
             'export_pdf_url' => url('plugin/Reports') . '?' . http_build_query(array_merge($baseParams, ['action' => 'export_pdf'])),
+            'contract_bandwidth' => $contractBandwidth,
         ];
     }
 
@@ -440,26 +480,50 @@ class Page extends PageHook
         return storage_path('logs/enlaces_report_audit.log');
     }
 
+    public function handleAuditAction(string $action, int $lineIndex = -1): void
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->can('admin')) {
+            abort(403, 'No autorizado.');
+        }
+
+        if ($action === 'clear_log') {
+            $this->clearAuditLog();
+        } elseif ($action === 'delete_log_entry' && $lineIndex >= 0) {
+            $this->deleteAuditLogEntry($lineIndex);
+        }
+    }
+
     private function deleteAuditLogEntry(int $lineIndex): void
     {
         try {
             $file = $this->auditLogPath();
-            if (! is_readable($file) || ! is_writable($file)) {
+            $handle = @fopen($file, 'c+');
+            if ($handle === false) {
+                return;
+            }
+            if (! flock($handle, LOCK_EX)) {
+                fclose($handle);
+
                 return;
             }
 
-            $lines = @file($file, FILE_IGNORE_NEW_LINES);
+            $contents = stream_get_contents($handle);
+            $lines = $contents === false ? [] : preg_split('/\R/', rtrim($contents));
             if (! is_array($lines) || ! array_key_exists($lineIndex, $lines)) {
+                flock($handle, LOCK_UN);
+                fclose($handle);
                 return;
             }
 
             array_splice($lines, $lineIndex, 1);
-            $content = implode(PHP_EOL, $lines);
-            if (count($lines) > 0) {
-                $content .= PHP_EOL;
-            }
-
-            @file_put_contents($file, $content, LOCK_EX);
+            $content = empty($lines) ? '' : implode(PHP_EOL, $lines) . PHP_EOL;
+            rewind($handle);
+            ftruncate($handle, 0);
+            fwrite($handle, $content);
+            fflush($handle);
+            flock($handle, LOCK_UN);
+            fclose($handle);
         } catch (\Throwable $e) {
             // No bloquear por errores de IO
         }
@@ -469,8 +533,14 @@ class Page extends PageHook
     {
         try {
             $file = $this->auditLogPath();
-            if (is_writable($file)) {
-                @file_put_contents($file, '', LOCK_EX);
+            $handle = @fopen($file, 'c+');
+            if ($handle !== false) {
+                if (flock($handle, LOCK_EX)) {
+                    ftruncate($handle, 0);
+                    fflush($handle);
+                    flock($handle, LOCK_UN);
+                }
+                fclose($handle);
             }
         } catch (\Throwable $e) {
             // No bloquear por errores de IO
@@ -501,7 +571,7 @@ class Page extends PageHook
     private function getDevices(): array
     {
         return \App\Models\Device::hasAccess(auth()->user())
-            ->select('device_id', 'hostname', 'sysName', 'ip', 'status')
+            ->select('device_id', 'hostname', 'sysName', 'display', 'ip', 'status')
             ->orderBy('hostname', 'ASC')
             ->toBase()
             ->get()
@@ -520,14 +590,17 @@ class Page extends PageHook
     private function getPorts(int $deviceId): array
     {
         return DB::select(
-            'SELECT port_id, device_id, ifName, ifAlias, ifOperStatus FROM ports WHERE device_id = ? AND deleted = 0 ORDER BY ifIndex ASC',
+            'SELECT port_id, device_id, ifName, ifAlias, ifOperStatus FROM ports WHERE device_id = ? AND deleted = 0 AND disabled = 0 AND `ignore` = 0 ORDER BY ifIndex ASC',
             [$deviceId]
         );
     }
 
-    private function getPort(int $portId): ?object
+    private function getPort(int $portId, int $deviceId): ?object
     {
-        return DB::selectOne('SELECT * FROM ports WHERE port_id = ?', [$portId]);
+        return DB::selectOne(
+            'SELECT * FROM ports WHERE port_id = ? AND device_id = ? AND deleted = 0 AND disabled = 0 AND `ignore` = 0',
+            [$portId, $deviceId]
+        );
     }
 
     private function dataBandwidth(array $device, array $port, int $startTs, int $endTs): array
@@ -537,8 +610,20 @@ class Page extends PageHook
             return [];
         }
 
-        $raw = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR);
+        $contractBw = $this->getContractBandwidth((int) $port['port_id'] ?? 0);
+
+        // AVERAGE para promedios y totales
+        $raw = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR, 'AVERAGE');
         $daily = $this->aggregateDaily($raw, ['INOCTETS', 'OUTOCTETS']);
+
+        // MAX para picos reales (igual a lo que muestra el gráfico RRD)
+        $rawMax = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR, 'MAX');
+        $dailyMax = $this->aggregateMax($rawMax, ['INOCTETS', 'OUTOCTETS']);
+        // Indexar dailyMax por fecha para join rápido
+        $maxByDate = [];
+        foreach ($dailyMax as $r) {
+            $maxByDate[date('Y-m-d', $r['timestamp'])] = $r;
+        }
 
         $rows = [];
         foreach ($daily as $r) {
@@ -546,12 +631,18 @@ class Page extends PageHook
                 continue;
             }
 
+            $fecha = date('Y-m-d', $r['timestamp']);
+            $mxRow = $maxByDate[$fecha] ?? null;
+
             $rows[] = [
-                'Fecha' => date('Y-m-d', $r['timestamp']),
-                'Entrada (Mbps)' => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * 8 / 1000000, 4) : '',
-                'Salida (Mbps)' => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * 8 / 1000000, 4) : '',
-                'Total In (GB)' => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * self::STEP_DAY / 1073741824, 6) : '',
-                'Total Out (GB)' => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * self::STEP_DAY / 1073741824, 6) : '',
+                'Fecha'                     => $fecha,
+                'Entrada Prom (Mbps)'       => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * 8 / 1000000, 4) : '',
+                'Salida Prom (Mbps)'        => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * 8 / 1000000, 4) : '',
+                'Entrada Pico (Mbps)'       => ($mxRow['INOCTETS'] ?? null) !== null ? round($mxRow['INOCTETS'] * 8 / 1000000, 4) : '',
+                'Salida Pico (Mbps)'        => ($mxRow['OUTOCTETS'] ?? null) !== null ? round($mxRow['OUTOCTETS'] * 8 / 1000000, 4) : '',
+                'Total In (GB)'             => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * $r['INOCTETS_seconds'] / 1073741824, 3) : '',
+                'Total Out (GB)'            => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * $r['OUTOCTETS_seconds'] / 1073741824, 3) : '',
+                'Umbral Contratado (Mbps)'  => $contractBw > 0 ? $contractBw : '',
             ];
         }
 
@@ -577,10 +668,10 @@ class Page extends PageHook
 
             $rows[] = [
                 'Fecha' => date('Y-m-d', $r['timestamp']),
-                'Errores In' => $r['INERRORS'] !== null ? round($r['INERRORS'] * self::STEP_DAY) : '',
-                'Errores Out' => $r['OUTERRORS'] !== null ? round($r['OUTERRORS'] * self::STEP_DAY) : '',
-                'Descartados In' => $r['INDISCARDS'] !== null ? round($r['INDISCARDS'] * self::STEP_DAY) : '',
-                'Descartados Out' => $r['OUTDISCARDS'] !== null ? round($r['OUTDISCARDS'] * self::STEP_DAY) : '',
+                'Errores In' => $r['INERRORS'] !== null ? round($r['INERRORS'] * $r['INERRORS_seconds']) : '',
+                'Errores Out' => $r['OUTERRORS'] !== null ? round($r['OUTERRORS'] * $r['OUTERRORS_seconds']) : '',
+                'Descartados In' => $r['INDISCARDS'] !== null ? round($r['INDISCARDS'] * $r['INDISCARDS_seconds']) : '',
+                'Descartados Out' => $r['OUTDISCARDS'] !== null ? round($r['OUTDISCARDS'] * $r['OUTDISCARDS_seconds']) : '',
             ];
         }
 
@@ -723,55 +814,97 @@ class Page extends PageHook
             [$devId, $endTs, $startTs]
         );
 
-        $downSecs = 0;
-        foreach ($outages as $o) {
-            $down = max((int) $o->going_down, $startTs);
-            $up = $o->outage_up ? min((int) $o->outage_up, $endTs) : $endTs;
-            $downSecs += max(0, $up - $down);
+        $events = [];
+        $effectiveIntervals = [];
+        foreach ($outages as $outage) {
+            $outageStart = (int) $outage->going_down;
+            $outageEnd = $outage->outage_up ? (int) $outage->outage_up : null;
+            $effectiveStart = max($outageStart, $startTs);
+            $effectiveEnd = min($outageEnd ?? $endTs, $endTs);
+            if ($effectiveEnd <= $effectiveStart) {
+                continue;
+            }
+
+            $events[] = [
+                'start' => $outageStart,
+                'end' => $outageEnd,
+                'duration_seconds' => $effectiveEnd - $effectiveStart,
+            ];
+
+            $effectiveIntervals[] = [$effectiveStart, $effectiveEnd];
         }
+
+        $downSecs = $this->mergedDurationSeconds($effectiveIntervals);
+        $this->mergedIntervalsCache = $this->buildMergedIntervals($effectiveIntervals);
 
         $upSecs = max(0, $totalSecs - $downSecs);
         $avail = $totalSecs > 0 ? round(($upSecs / $totalSecs) * 100, 4) : 100.0;
+        $this->availabilityMetrics = [
+            'down_seconds' => $downSecs,
+            'outage_count' => count($events),
+        ];
+        $this->availabilityEvents = array_map(fn (array $event): array => [
+            'Inicio Caida' => date('Y-m-d H:i:s', $event['start']),
+            'Fin Caida' => $event['end'] === null ? 'En curso' : date('Y-m-d H:i:s', $event['end']),
+            'Duracion Caida (min)' => round($event['duration_seconds'] / 60, 1),
+        ], $events);
 
-        return [[
+        $baseRow = [
             'Dispositivo' => $device['hostname'],
-            'Periodo Desde' => date('Y-m-d', $startTs),
-            'Periodo Hasta' => date('Y-m-d', $endTs),
+            'Periodo Desde' => date('Y-m-d H:i:s', $startTs),
+            'Periodo Hasta' => date('Y-m-d H:i:s', $endTs),
+        ];
+        $summaryRow = [
             'Hrs Totales' => round($totalSecs / 3600, 2),
             'Hrs Activo' => round($upSecs / 3600, 2),
             'Hrs Caido' => round($downSecs / 3600, 2),
             'Disponibilidad (%)' => $avail,
-            'N Caidas' => count($outages),
-        ]];
+            'N Caidas' => count($events),
+        ];
+
+        if (empty($events)) {
+            return [[
+                ...$baseRow,
+                'Inicio Caida' => '',
+                'Fin Caida' => '',
+                'Duracion Caida (min)' => 0,
+                ...$summaryRow,
+            ]];
+        }
+
+        return array_map(fn (array $event): array => [
+            ...$baseRow,
+            ...$event,
+            ...$summaryRow,
+        ], $this->availabilityEvents);
     }
 
     private function exportCsv(array $reportData, string $filename): void
     {
         $headers = array_keys($reportData[0]);
-        $body = "\xEF\xBB\xBF";
-        $stream = fopen('php://temp', 'r+');
-        fputcsv($stream, $headers);
-        foreach ($reportData as $row) {
-            fputcsv($stream, array_values($row));
-        }
-        rewind($stream);
-        $body .= stream_get_contents($stream) ?: '';
-        fclose($stream);
-
-        $this->sendDownload($body, [
+        $this->sendHeaders([
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . addslashes($filename) . '"',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+
+        $stream = fopen('php://output', 'w');
+        fwrite($stream, "\xEF\xBB\xBF");
+        fputcsv($stream, $headers);
+        foreach ($reportData as $row) {
+            fputcsv($stream, array_map($this->sanitizeSpreadsheetCell(...), array_values($row)));
+        }
+        fclose($stream);
+        exit;
     }
 
     private function exportExcel(array $reportData, string $filename, string $sheetTitle): void
     {
         $writer = new SimpleXlsxWriter($sheetTitle);
         $writer->setHeaders(array_keys($reportData[0]));
-        $writer->addRows(array_map(fn ($r) => array_values($r), $reportData));
+        $writer->addRows($reportData);
         $content = $writer->toString();
 
         $this->sendDownload($content, [
@@ -804,20 +937,141 @@ class Page extends PageHook
 
     private function sendDownload(string $content, array $headers): void
     {
-        if (! headers_sent()) {
-            http_response_code(200);
-            foreach ($headers as $name => $value) {
-                header($name . ': ' . $value);
-            }
-        }
+        $this->sendHeaders($headers);
 
         echo $content;
         exit;
     }
 
+    private function sendHeaders(array $headers): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        http_response_code(200);
+        foreach ($headers as $name => $value) {
+            header($name . ': ' . $value);
+        }
+    }
+
+    private function sanitizeSpreadsheetCell(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        return preg_match('/^[\x00-\x20]*[=+\-@]/', $value) === 1 ? "'" . $value : $value;
+    }
+
+    private function slaMonths(string $period, float $periodDays): int
+    {
+        return match ($period) {
+            'annual' => 12,
+            'custom' => max(1, (int) round($periodDays / 30)),
+            default => 1,
+        };
+    }
+
+    private function compliesWithSla(int $downSeconds, float $thresholdMinutes): bool
+    {
+        return $downSeconds <= (int) round($thresholdMinutes * 60);
+    }
+
+    /** Intervalos fusionados de la última llamada a dataAvailability, para la gráfica diaria. */
+    private array $mergedIntervalsCache = [];
+
+    private function getMergedIntervals(): array
+    {
+        return $this->mergedIntervalsCache;
+    }
+
+    private function mergedDurationSeconds(array $intervals): int
+    {
+        return array_sum(array_map(
+            fn (array $i): int => $i[1] - $i[0],
+            $this->buildMergedIntervals($intervals)
+        ));
+    }
+
+    private function buildMergedIntervals(array $intervals): array
+    {
+        if (empty($intervals)) {
+            return [];
+        }
+
+        usort($intervals, fn (array $left, array $right): int => $left[0] <=> $right[0]);
+        $merged = [];
+        foreach ($intervals as [$start, $end]) {
+            $lastIndex = count($merged) - 1;
+            if ($lastIndex >= 0 && $start <= $merged[$lastIndex][1]) {
+                $merged[$lastIndex][1] = max($merged[$lastIndex][1], $end);
+            } else {
+                $merged[] = [$start, $end];
+            }
+        }
+
+        return $merged;
+    }
+
+    private function getDeviceSla(int $deviceId): float
+    {
+        $attr = DB::selectOne(
+            'SELECT attrib_value FROM devices_attribs WHERE attrib_type = ? AND device_id = ? LIMIT 1',
+            ['device_sla_target', $deviceId]
+        );
+
+        return $attr ? (float) $attr->attrib_value : 0.0;
+    }
+
     private function rrdDir(): string
     {
         return rtrim((string) config('librenms.rrd_dir', '/opt/librenms/rrd'), '/');
+    }
+
+    /**
+     * Obtiene la velocidad contratada para un puerto desde devices_attribs.
+     * @return int velocidad en Mbps (0 si no está configurada)
+     */
+    private function getContractBandwidth(int $portId): int
+    {
+        if ($portId <= 0) {
+            return 0;
+        }
+
+        $attr = DB::selectOne(
+            'SELECT attrib_value FROM devices_attribs WHERE attrib_type = ? AND device_id = (SELECT device_id FROM ports WHERE port_id = ?) LIMIT 1',
+            ["port_{$portId}_contract_bandwidth", $portId]
+        );
+
+        return $attr ? (int) $attr->attrib_value : 0;
+    }
+
+    /**
+     * Guarda la velocidad contratada para un puerto.
+     */
+    private function saveContractBandwidth(int $portId, int $bandwidth): void
+    {
+        if ($portId <= 0) {
+            return;
+        }
+
+        $port = DB::selectOne('SELECT device_id FROM ports WHERE port_id = ?', [$portId]);
+        if (! $port) {
+            return;
+        }
+
+        $attribType = "port_{$portId}_contract_bandwidth";
+        $deviceId = (int) $port->device_id;
+
+        if ($bandwidth > 0) {
+            DB::statement(
+                'INSERT INTO devices_attribs (device_id, attrib_type, attrib_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attrib_value = ?',
+                [$deviceId, $attribType, (string) $bandwidth, (string) $bandwidth]
+            );
+        } else {
+            DB::statement('DELETE FROM devices_attribs WHERE device_id = ? AND attrib_type = ?', [$deviceId, $attribType]);
+        }
     }
 
     private function resolvePortRrdPath(array $device, array $port): ?string
@@ -905,11 +1159,13 @@ class Page extends PageHook
         foreach ($raw as $r) {
             // rrdtool timestamps data at the END of the interval; subtract 1s to assign to the correct day
             $date = date('Y-m-d', max(0, (int) ($r['timestamp'] ?? 0) - 1));
+            $sampleSeconds = max(1, (int) ($r['_step'] ?? self::STEP_HOUR));
             if (! isset($bucket[$date])) {
                 $bucket[$date] = ['timestamp' => strtotime($date . ' 00:00:00')];
                 foreach ($dsNames as $ds) {
                     $bucket[$date][$ds . '_sum'] = 0.0;
                     $bucket[$date][$ds . '_cnt'] = 0;
+                    $bucket[$date][$ds . '_seconds'] = 0;
                 }
             }
 
@@ -918,6 +1174,7 @@ class Page extends PageHook
                 if ($val !== null) {
                     $bucket[$date][$ds . '_sum'] += (float) $val;
                     $bucket[$date][$ds . '_cnt']++;
+                    $bucket[$date][$ds . '_seconds'] += $sampleSeconds;
                 }
             }
         }
@@ -929,6 +1186,7 @@ class Page extends PageHook
             foreach ($dsNames as $ds) {
                 $cnt = (int) $row[$ds . '_cnt'];
                 $daily[$ds] = $cnt > 0 ? ($row[$ds . '_sum'] / $cnt) : null;
+                $daily[$ds . '_seconds'] = (int) $row[$ds . '_seconds'];
             }
             $out[] = $daily;
         }
@@ -936,62 +1194,140 @@ class Page extends PageHook
         return $out;
     }
 
-    private function rrdFetch(string $rrdFile, array $dsNames, int $startTs, int $endTs, int $resolution = self::STEP_DAY): array
+    /**
+     * Agrega datos horarios por día retornando el valor MÁXIMO de cada DS por día.
+     * Usado para calcular picos reales (equivalente al MAX que muestra el gráfico RRD).
+     */
+    private function aggregateMax(array $raw, array $dsNames): array
+    {
+        $bucket = [];
+
+        foreach ($raw as $r) {
+            $date = date('Y-m-d', max(0, (int) ($r['timestamp'] ?? 0) - 1));
+            if (! isset($bucket[$date])) {
+                $bucket[$date] = ['timestamp' => strtotime($date . ' 00:00:00')];
+                foreach ($dsNames as $ds) {
+                    $bucket[$date][$ds] = null;
+                }
+            }
+
+            foreach ($dsNames as $ds) {
+                $val = $r[$ds] ?? null;
+                if ($val !== null) {
+                    $current = $bucket[$date][$ds];
+                    if ($current === null || (float) $val > $current) {
+                        $bucket[$date][$ds] = (float) $val;
+                    }
+                }
+            }
+        }
+
+        ksort($bucket);
+        $out = [];
+        foreach ($bucket as $row) {
+            $daily = ['timestamp' => $row['timestamp']];
+            foreach ($dsNames as $ds) {
+                $daily[$ds] = $row[$ds];
+            }
+            $out[] = $daily;
+        }
+
+        return $out;
+    }
+
+
+    private function rrdFetch(string $rrdFile, array $dsNames, int $startTs, int $endTs, int $resolution = self::STEP_DAY, string $cf = 'AVERAGE'): array
     {
         $realRrd = $this->resolveExistingRrdPath($rrdFile);
         if ($realRrd === null) {
             return [];
         }
 
-        $cmd = sprintf(
-            'rrdtool fetch %s AVERAGE --start %d --end %d --resolution %d 2>/dev/null',
-            escapeshellarg($realRrd),
-            $startTs,
-            $endTs,
-            $resolution
-        );
-        $output = shell_exec($cmd);
-        if (! $output) {
-            return [];
-        }
+        // Validar CF para evitar inyección de comandos
+        $cf = in_array(strtoupper($cf), ['AVERAGE', 'MAX', 'MIN', 'LAST'], true)
+            ? strtoupper($cf) : 'AVERAGE';
 
-        $lines = explode("\n", trim((string) $output));
-        if (count($lines) < 2) {
-            return [];
-        }
+        $args = [
+            'rrdtool', 'xport',
+            '--start', (string) $startTs,
+            '--end', (string) $endTs,
+            '--step', (string) $resolution,
+            '--json',
+        ];
 
-        $headers = preg_split('/\s+/', trim((string) $lines[0])) ?: [];
-        $dsIndex = [];
+        // Agregar DEF para cada datasource con el CF solicitado
         foreach ($dsNames as $ds) {
-            $idx = array_search($ds, $headers, true);
-            if ($idx !== false) {
-                $dsIndex[$ds] = $idx;
-            }
+            $args[] = "DEF:$ds=$realRrd:$ds:$cf";
+        }
+
+        // Agregar XPORT para cada datasource
+        foreach ($dsNames as $ds) {
+            $args[] = "XPORT:$ds:$ds";
+        }
+
+        $proc = proc_open($args, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (! is_resource($proc)) {
+            return [];
+        }
+
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($proc);
+
+        if ($exitCode !== 0 || ! $output || ! empty($stderr)) {
+            return [];
+        }
+
+        $json = json_decode($output, true);
+        if (! is_array($json) || ! isset($json['data']) || ! is_array($json['data'])) {
+            return [];
+        }
+
+        $metaStart = (int) ($json['meta']['start'] ?? $startTs);
+        $metaStep = (int) ($json['meta']['step'] ?? $resolution);
+        if ($metaStep <= 0) {
+            $metaStep = $resolution > 0 ? $resolution : self::STEP_DAY;
         }
 
         $data = [];
-        $lineCount = count($lines);
-        for ($i = 1; $i < $lineCount; $i++) {
-            $line = trim((string) $lines[$i]);
-            if ($line === '' || ! preg_match('/^(\d+):\s+(.+)$/', $line, $m)) {
+        foreach ($json['data'] as $index => $row) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $ts = (int) $m[1];
-            $vals = preg_split('/\s+/', trim($m[2])) ?: [];
-            $row = ['timestamp' => $ts];
-            foreach ($dsIndex as $ds => $idx) {
-                $v = $vals[$idx] ?? 'nan';
-                $raw = strtolower(trim((string) $v));
-                if ($raw === 'nan' || $raw === '-nan' || $raw === 'inf' || $raw === '+inf' || $raw === '-inf') {
-                    $row[$ds] = null;
+            $ts = $metaStart + ((int) $index * $metaStep);
+            $parsed = ['timestamp' => $ts, '_step' => $metaStep];
+
+            for ($i = 0; $i < count($dsNames); $i++) {
+                $val = $row[$i] ?? null;
+
+                if ($val === null) {
+                    $parsed[$dsNames[$i]] = null;
                     continue;
                 }
 
-                $num = (float) $v;
-                $row[$ds] = is_finite($num) ? $num : null;
+                if (is_string($val)) {
+                    $raw = strtolower(trim($val));
+                    if ($raw === 'nan' || $raw === '-nan' || $raw === 'inf' || $raw === '+inf' || $raw === '-inf') {
+                        $parsed[$dsNames[$i]] = null;
+                        continue;
+                    }
+                }
+
+                if (! is_numeric($val)) {
+                    $parsed[$dsNames[$i]] = null;
+                    continue;
+                }
+
+                $num = (float) $val;
+                // Compatibilidad: algunos exportadores usan sentinelas extremos para null
+                $parsed[$dsNames[$i]] = (is_finite($num) && $num > -1.7e308) ? $num : null;
             }
-            $data[] = $row;
+
+            $data[] = $parsed;
         }
 
         return $data;

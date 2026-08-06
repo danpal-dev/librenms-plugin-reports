@@ -20,8 +20,20 @@ Plugin que añade un módulo de **reportes profesionales** de rendimiento y disp
 - **Períodos configurables**: personalizado, diario, semanal, mensual y anual.
 - **Exportación** a CSV, Excel y PDF desde la propia interfaz.
 - **Bitácora de auditoría** de reportes generados, con opción de eliminar entradas (solo admin).
+- **Disponibilidad con detalle de eventos**: fecha y hora de inicio, recuperación y duración de cada caída.
+- **SLA mensual**: máximo de 43 minutos de indisponibilidad por mes, calculado con precisión de segundos.
 - Etiqueta e icono del menú configurables desde el panel de administración.
 - Accesible para todos los usuarios autenticados.
+
+### Política de disponibilidad
+
+- El período mensual permite hasta 43 minutos de indisponibilidad, incluidos exactamente 43:00 minutos.
+- El período anual aplica 12 umbrales mensuales.
+- Los períodos personalizados usan el número de meses equivalente, con un mínimo de un mes.
+- Los intervalos de caída solapados se consolidan antes de calcular la disponibilidad.
+- La tabla web separa el resumen ejecutivo del detalle de eventos.
+
+Las acciones de la bitácora requieren permisos de administrador y solicitudes POST protegidas con CSRF. Las exportaciones CSV neutralizan valores que una hoja de cálculo podría interpretar como fórmulas.
 
 ---
 
