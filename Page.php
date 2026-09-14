@@ -5,6 +5,7 @@ namespace App\Plugins\Reports;
 use App\Plugins\Hooks\PageHook;
 use App\Plugins\Reports\Support\SimplePdfWriter;
 use App\Plugins\Reports\Support\SimpleXlsxWriter;
+use App\Plugins\Reports\Support\SlaPolicy;
 use DateTime;
 use Illuminate\Support\Facades\DB;
 
@@ -12,8 +13,6 @@ class Page extends PageHook
 {
     private const STEP_DAY = 86400;
     private const STEP_HOUR = 3600;
-    private const SLA_DOWNTIME_MINUTES_PER_MONTH = 43.0;
-
     private array $availabilityMetrics = [];
     private array $availabilityEvents = [];
 
@@ -224,16 +223,20 @@ class Page extends PageHook
             if ($reportType === 'bandwidth') {
                 $inVals   = $floatCol($reportData, 'Entrada Prom (Mbps)');
                 $outVals  = $floatCol($reportData, 'Salida Prom (Mbps)');
-                $inPicos  = $floatCol($reportData, 'Entrada Pico (Mbps)');
-                $outPicos = $floatCol($reportData, 'Salida Pico (Mbps)');
-                $inGb     = $floatCol($reportData, 'Total In (GB)');
-                $outGb    = $floatCol($reportData, 'Total Out (GB)');
+                $inPicos  = $floatCol($reportData, 'Entrada Máx. (Mbps)');
+                $outPicos = $floatCol($reportData, 'Salida Máx. (Mbps)');
+                $inMins   = $floatCol($reportData, 'Entrada Mín. (Mbps)');
+                $outMins  = $floatCol($reportData, 'Salida Mín. (Mbps)');
+                $inGb     = $floatCol($reportData, 'Total Entrada (GB)');
+                $outGb    = $floatCol($reportData, 'Total Salida (GB)');
                 $summary = [
                     'type'          => 'bandwidth',
                     'avg_in'        => count($inVals)   ? round(array_sum($inVals)  / count($inVals),  2) : null,
                     'max_in'        => count($inPicos)  ? (float) max($inPicos)  : null,
+                    'min_in'        => count($inMins)   ? (float) min(array_filter($inMins,  fn ($v) => $v !== null && $v !== '')) : null,
                     'avg_out'       => count($outVals)  ? round(array_sum($outVals) / count($outVals), 2) : null,
                     'max_out'       => count($outPicos) ? (float) max($outPicos) : null,
+                    'min_out'       => count($outMins)  ? (float) min(array_filter($outMins, fn ($v) => $v !== null && $v !== '')) : null,
                     'total_in_gb'   => count($inGb)     ? round(array_sum($inGb),  1) : null,
                     'total_out_gb'  => count($outGb)    ? round(array_sum($outGb), 1) : null,
                     'chart_labels'  => array_column($reportData, 'Fecha'),
@@ -242,15 +245,15 @@ class Page extends PageHook
                     'contract_bandwidth' => $contractBandwidth > 0 ? (int) $contractBandwidth : 0,
                 ];
             } elseif ($reportType === 'packets') {
-                $eIn  = $floatCol($reportData, 'Errores In');
-                $eOut = $floatCol($reportData, 'Errores Out');
-                $dIn  = $floatCol($reportData, 'Descartados In');
-                $dOut = $floatCol($reportData, 'Descartados Out');
+                $eIn  = $floatCol($reportData, 'Errores Entrada');
+                $eOut = $floatCol($reportData, 'Errores Salida');
+                $dIn  = $floatCol($reportData, 'Descartados Entrada');
+                $dOut = $floatCol($reportData, 'Descartados Salida');
                 $peakDay = null;
                 $peakVal = -1;
                 foreach ($reportData as $row) {
-                    $total = ((float)($row['Errores In'] ?: 0)) + ((float)($row['Errores Out'] ?: 0))
-                           + ((float)($row['Descartados In'] ?: 0)) + ((float)($row['Descartados Out'] ?: 0));
+                    $total = ((float)($row['Errores Entrada'] ?: 0)) + ((float)($row['Errores Salida'] ?: 0))
+                           + ((float)($row['Descartados Entrada'] ?: 0)) + ((float)($row['Descartados Salida'] ?: 0));
                     if ($total > $peakVal) { $peakVal = $total; $peakDay = $row['Fecha']; }
                 }
                 $summary = [
@@ -261,8 +264,8 @@ class Page extends PageHook
                     'total_dis_out' => count($dOut) ? (int) round(array_sum($dOut)) : null,
                     'peak_day'      => $peakVal > 0 ? $peakDay : null,
                     'chart_labels'  => array_column($reportData, 'Fecha'),
-                    'chart_err_in'  => array_map(fn ($v) => $v === '' ? null : (float) $v, array_column($reportData, 'Errores In')),
-                    'chart_err_out' => array_map(fn ($v) => $v === '' ? null : (float) $v, array_column($reportData, 'Errores Out')),
+                    'chart_err_in'  => array_map(fn ($v) => $v === '' ? null : (float) $v, array_column($reportData, 'Errores Entrada')),
+                    'chart_err_out' => array_map(fn ($v) => $v === '' ? null : (float) $v, array_column($reportData, 'Errores Salida')),
                 ];
             } elseif ($reportType === 'resources') {
                 $cpuVals  = $floatCol($reportData, 'CPU Promedio (%)');
@@ -291,21 +294,15 @@ class Page extends PageHook
                 $periodDays = $hrsTotal > 0 ? $hrsTotal / 24.0 : max(1, ($endTs - $startTs) / 86400);
                 $slaMonths = $this->slaMonths($period, $periodDays);
 
-                // Usar SLA configurado por dispositivo si existe; si no, el hardcoded (99.9%)
-                if ($deviceSla > 0) {
-                    $slaTargetPct     = $deviceSla;
-                    $downtimeRatio    = (100.0 - $deviceSla) / 100.0;
-                    $slaThresholdMins = $downtimeRatio * 30 * 24 * 60 * $slaMonths;
-                } else {
-                    $slaTargetPct     = round(100.0 - (self::SLA_DOWNTIME_MINUTES_PER_MONTH / (30 * 24 * 60)) * 100, 3);
-                    $slaThresholdMins = self::SLA_DOWNTIME_MINUTES_PER_MONTH * $slaMonths;
-                }
+                $slaTargetPct = $deviceSla > 0 ? $deviceSla : SlaPolicy::CONTRACT_TARGET_PERCENT;
+                $slaMonthlyThresholdMins = SlaPolicy::monthlyDowntimeMinutes($slaTargetPct);
+                $slaThresholdMins = $slaMonthlyThresholdMins * $slaMonths;
                 $slaThresholdHrs = $slaThresholdMins / 60.0;
 
                 $slaOk = $this->compliesWithSla($downSeconds, $slaThresholdMins);
                 $sla   = $slaOk
-                    ? ['label' => 'Cumple SLA', 'class' => 'success']
-                    : ['label' => 'Bajo SLA',   'class' => 'danger'];
+                    ? ['label' => 'Cumple SLA',    'class' => 'success']
+                    : ['label' => 'Fuera de SLA', 'class' => 'danger'];
 
                 // Construir gráfica diaria de disponibilidad
                 $dailyLabels = [];
@@ -332,9 +329,10 @@ class Page extends PageHook
                     'avail_pct'           => $avail,
                     'hrs_up'              => (float) ($row['Hrs Activo'] ?? 0),
                     'hrs_down'            => $hrsDown,
-                    'n_outages'           => (int)   ($row['N Caidas']  ?? 0),
+                    'n_outages'           => (int)   ($row['N° Interrupciones']  ?? 0),
                     'sla'                 => $sla,
                     'sla_target_pct'      => $slaTargetPct,
+                    'sla_monthly_threshold_mins' => $slaMonthlyThresholdMins,
                     'sla_threshold_hrs'   => round($slaThresholdHrs, 4),
                     'sla_threshold_mins'  => round($slaThresholdMins, 1),
                     'sla_months'          => $slaMonths,
@@ -616,13 +614,20 @@ class Page extends PageHook
         $raw = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR, 'AVERAGE');
         $daily = $this->aggregateDaily($raw, ['INOCTETS', 'OUTOCTETS']);
 
-        // MAX para picos reales (igual a lo que muestra el gráfico RRD)
+        // MAX diario real (CF=MAX del RRD, equivale al máximo del periodo)
         $rawMax = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR, 'MAX');
         $dailyMax = $this->aggregateMax($rawMax, ['INOCTETS', 'OUTOCTETS']);
-        // Indexar dailyMax por fecha para join rápido
         $maxByDate = [];
         foreach ($dailyMax as $r) {
             $maxByDate[date('Y-m-d', $r['timestamp'])] = $r;
+        }
+
+        // MIN diario real (CF=MIN del RRD)
+        $rawMin = $this->rrdFetch($rrd, ['INOCTETS', 'OUTOCTETS'], $startTs, $endTs, self::STEP_HOUR, 'MIN');
+        $dailyMin = $this->aggregateMin($rawMin, ['INOCTETS', 'OUTOCTETS']);
+        $minByDate = [];
+        foreach ($dailyMin as $r) {
+            $minByDate[date('Y-m-d', $r['timestamp'])] = $r;
         }
 
         $rows = [];
@@ -633,16 +638,19 @@ class Page extends PageHook
 
             $fecha = date('Y-m-d', $r['timestamp']);
             $mxRow = $maxByDate[$fecha] ?? null;
+            $mnRow = $minByDate[$fecha] ?? null;
 
             $rows[] = [
-                'Fecha'                     => $fecha,
-                'Entrada Prom (Mbps)'       => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * 8 / 1000000, 4) : '',
-                'Salida Prom (Mbps)'        => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * 8 / 1000000, 4) : '',
-                'Entrada Pico (Mbps)'       => ($mxRow['INOCTETS'] ?? null) !== null ? round($mxRow['INOCTETS'] * 8 / 1000000, 4) : '',
-                'Salida Pico (Mbps)'        => ($mxRow['OUTOCTETS'] ?? null) !== null ? round($mxRow['OUTOCTETS'] * 8 / 1000000, 4) : '',
-                'Total In (GB)'             => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * $r['INOCTETS_seconds'] / 1073741824, 3) : '',
-                'Total Out (GB)'            => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * $r['OUTOCTETS_seconds'] / 1073741824, 3) : '',
-                'Umbral Contratado (Mbps)'  => $contractBw > 0 ? $contractBw : '',
+                'Fecha'                    => $fecha,
+                'Entrada Prom (Mbps)'      => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * 8 / 1000000, 4) : '',
+                'Entrada Máx. (Mbps)'      => ($mxRow['INOCTETS'] ?? null) !== null ? round($mxRow['INOCTETS'] * 8 / 1000000, 4) : '',
+                'Entrada Mín. (Mbps)'      => ($mnRow['INOCTETS'] ?? null) !== null ? round($mnRow['INOCTETS'] * 8 / 1000000, 4) : '',
+                'Salida Prom (Mbps)'       => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * 8 / 1000000, 4) : '',
+                'Salida Máx. (Mbps)'       => ($mxRow['OUTOCTETS'] ?? null) !== null ? round($mxRow['OUTOCTETS'] * 8 / 1000000, 4) : '',
+                'Salida Mín. (Mbps)'       => ($mnRow['OUTOCTETS'] ?? null) !== null ? round($mnRow['OUTOCTETS'] * 8 / 1000000, 4) : '',
+                'Total Entrada (GB)'       => $r['INOCTETS'] !== null ? round($r['INOCTETS'] * $r['INOCTETS_seconds'] / 1073741824, 3) : '',
+                'Total Salida (GB)'        => $r['OUTOCTETS'] !== null ? round($r['OUTOCTETS'] * $r['OUTOCTETS_seconds'] / 1073741824, 3) : '',
+                'Umbral Contratado (Mbps)' => $contractBw > 0 ? $contractBw : '',
             ];
         }
 
@@ -668,10 +676,10 @@ class Page extends PageHook
 
             $rows[] = [
                 'Fecha' => date('Y-m-d', $r['timestamp']),
-                'Errores In' => $r['INERRORS'] !== null ? round($r['INERRORS'] * $r['INERRORS_seconds']) : '',
-                'Errores Out' => $r['OUTERRORS'] !== null ? round($r['OUTERRORS'] * $r['OUTERRORS_seconds']) : '',
-                'Descartados In' => $r['INDISCARDS'] !== null ? round($r['INDISCARDS'] * $r['INDISCARDS_seconds']) : '',
-                'Descartados Out' => $r['OUTDISCARDS'] !== null ? round($r['OUTDISCARDS'] * $r['OUTDISCARDS_seconds']) : '',
+                'Errores Entrada'    => $r['INERRORS'] !== null ? round($r['INERRORS'] * $r['INERRORS_seconds']) : '',
+                'Errores Salida'     => $r['OUTERRORS'] !== null ? round($r['OUTERRORS'] * $r['OUTERRORS_seconds']) : '',
+                'Descartados Entrada' => $r['INDISCARDS'] !== null ? round($r['INDISCARDS'] * $r['INDISCARDS_seconds']) : '',
+                'Descartados Salida'  => $r['OUTDISCARDS'] !== null ? round($r['OUTDISCARDS'] * $r['OUTDISCARDS_seconds']) : '',
             ];
         }
 
@@ -844,9 +852,9 @@ class Page extends PageHook
             'outage_count' => count($events),
         ];
         $this->availabilityEvents = array_map(fn (array $event): array => [
-            'Inicio Caida' => date('Y-m-d H:i:s', $event['start']),
-            'Fin Caida' => $event['end'] === null ? 'En curso' : date('Y-m-d H:i:s', $event['end']),
-            'Duracion Caida (min)' => round($event['duration_seconds'] / 60, 1),
+            'Inicio Interrupción' => date('Y-m-d H:i:s', $event['start']),
+            'Fin Interrupción'    => $event['end'] === null ? 'En curso' : date('Y-m-d H:i:s', $event['end']),
+            'Duración (min)'      => round($event['duration_seconds'] / 60, 1),
         ], $events);
 
         $baseRow = [
@@ -859,15 +867,15 @@ class Page extends PageHook
             'Hrs Activo' => round($upSecs / 3600, 2),
             'Hrs Caido' => round($downSecs / 3600, 2),
             'Disponibilidad (%)' => $avail,
-            'N Caidas' => count($events),
+            'N° Interrupciones' => count($events),
         ];
 
         if (empty($events)) {
             return [[
                 ...$baseRow,
-                'Inicio Caida' => '',
-                'Fin Caida' => '',
-                'Duracion Caida (min)' => 0,
+                'Inicio Interrupción' => '',
+                'Fin Interrupción'    => '',
+                'Duración (min)'      => 0,
                 ...$summaryRow,
             ]];
         }
@@ -1196,10 +1204,11 @@ class Page extends PageHook
 
     /**
      * Agrega datos horarios por día retornando el valor MÁXIMO de cada DS por día.
-     * Usado para calcular picos reales (equivalente al MAX que muestra el gráfico RRD).
+     * Usado para calcular el máximo diario real (CF=MAX del RRD).
      */
     private function aggregateMax(array $raw, array $dsNames): array
     {
+
         $bucket = [];
 
         foreach ($raw as $r) {
@@ -1216,6 +1225,44 @@ class Page extends PageHook
                 if ($val !== null) {
                     $current = $bucket[$date][$ds];
                     if ($current === null || (float) $val > $current) {
+                        $bucket[$date][$ds] = (float) $val;
+                    }
+                }
+            }
+        }
+
+        ksort($bucket);
+        $out = [];
+        foreach ($bucket as $row) {
+            $daily = ['timestamp' => $row['timestamp']];
+            foreach ($dsNames as $ds) {
+                $daily[$ds] = $row[$ds];
+            }
+            $out[] = $daily;
+        }
+
+        return $out;
+    }
+
+    /** CF=MIN del RRD — mínimo diario real para cada DS. */
+    private function aggregateMin(array $raw, array $dsNames): array
+    {
+        $bucket = [];
+
+        foreach ($raw as $r) {
+            $date = date('Y-m-d', max(0, (int) ($r['timestamp'] ?? 0) - 1));
+            if (! isset($bucket[$date])) {
+                $bucket[$date] = ['timestamp' => strtotime($date . ' 00:00:00')];
+                foreach ($dsNames as $ds) {
+                    $bucket[$date][$ds] = null;
+                }
+            }
+
+            foreach ($dsNames as $ds) {
+                $val = $r[$ds] ?? null;
+                if ($val !== null) {
+                    $current = $bucket[$date][$ds];
+                    if ($current === null || (float) $val < $current) {
                         $bucket[$date][$ds] = (float) $val;
                     }
                 }

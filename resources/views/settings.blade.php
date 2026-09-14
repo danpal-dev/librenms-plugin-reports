@@ -9,35 +9,41 @@
 @endphp
 
 <style>
-.rpt-settings-wrap { max-width: 900px; margin: 20px auto 40px; }
-.rpt-settings-wrap .panel { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+.rpt-settings-wrap {
+    max-width:1100px; margin:14px auto 28px; color:#344054;
+    font-family:var(--fb-font-family, 'Inter', system-ui, sans-serif);
+    --rpt-text:#172033; --rpt-muted:#475467; --rpt-subtle:#667085;
+    --rpt-border:#d0d5dd; --rpt-soft:#f8fafc;
+}
+.rpt-settings-wrap .panel { border:1px solid var(--rpt-border); border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.06); }
 .rpt-settings-wrap .panel-heading {
     background: linear-gradient(135deg, #1e2432 0%, {{ $accent }} 100%);
-    border: none; padding: 22px 24px;
+    border:none; padding:15px 18px;
 }
 .rpt-settings-wrap .panel-heading .rpt-icon {
-    background: rgba(255,255,255,.15); border-radius: 12px;
-    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25); border-radius:8px;
+    width:42px; height:42px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
 .rpt-settings-wrap .panel-heading h4 { margin: 0 0 3px; color: #fff; font-size: 18px; font-weight: 700; }
-.rpt-settings-wrap .panel-heading p  { margin: 0; color: rgba(255,255,255,.75); font-size: 13px; }
-.rpt-settings-wrap .panel-body { padding: 24px; }
+.rpt-settings-wrap .panel-heading p  { margin:0; color:rgba(255,255,255,.9); font-size:12px; }
+.rpt-settings-wrap .panel-body { padding:18px; }
 .rpt-field label {
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .5px; color: #374151; margin-bottom: 6px;
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0; color:var(--rpt-muted); margin-bottom:5px;
 }
 .rpt-field .form-control {
-    border-radius: 8px; border-color: #d1d5db; font-size: 14px;
+    border-radius:7px; border-color:var(--rpt-border); font-size:13px; color:var(--rpt-text);
     transition: border-color .15s, box-shadow .15s;
 }
+.rpt-field .form-control[disabled], .rpt-field .form-control option:disabled { color:#475467; background:#f2f4f7; opacity:1; }
 .rpt-field .form-control:focus {
     border-color: {{ $accent }};
     box-shadow: 0 0 0 3px {{ $accent }}22;
     outline: none;
 }
-.rpt-field .help-block { font-size: 12px; color: #9ca3af; margin-top: 5px; }
-.rpt-field { margin-bottom: 20px; }
-.rpt-divider { height: 1px; background: #e5eaf0; margin: 20px 0; }
+.rpt-field .help-block, .rpt-field small { font-size:11px; color:var(--rpt-subtle) !important; margin-top:5px; }
+.rpt-field { margin-bottom:14px; }
+.rpt-divider { height:1px; background:var(--rpt-border); margin:16px 0; }
 .rpt-btn-save {
     background: {{ $accent }}; border-color: {{ $accent }};
     color: #fff; border-radius: 8px; font-weight: 600;
@@ -46,17 +52,40 @@
 }
 .rpt-btn-save:hover { opacity: .9; color: #fff; transform: translateY(-1px); }
 .rpt-btn-save[disabled] {
-    opacity: .6;
+    color:#fff;
+    filter:saturate(.65);
     cursor: not-allowed;
     transform: none;
 }
 .rpt-inline-status {
     margin-top: 8px;
     font-size: 12px;
-    color: #6b7280;
+    color:var(--rpt-muted);
     display: flex;
     align-items: center;
     gap: 6px;
+}
+.rpt-settings-wrap .table { color:#344054; font-size:12px; }
+.rpt-settings-wrap .table > thead > tr > th {
+    background:var(--rpt-soft); color:var(--rpt-muted) !important; border-bottom:2px solid var(--rpt-border);
+    font-size:11px !important; font-weight:700; text-transform:uppercase; letter-spacing:0 !important;
+}
+.rpt-settings-wrap .table > tbody > tr > td { color:#344054; border-top:1px solid #e4e7ec; vertical-align:middle; }
+.rpt-settings-wrap .alert { border-radius:7px; font-size:12px; font-weight:600; }
+.rpt-settings-wrap .alert-success { color:#05603a; background:#ecfdf3; border-color:#75e0a7; }
+.rpt-settings-wrap .alert-warning { color:#7a2e0e; background:#fffaeb; border-color:#fec84b; }
+.rpt-settings-wrap .alert-danger { color:#912018; background:#fef3f2; border-color:#fda29b; }
+.rpt-settings-wrap .alert-info { color:#194185; background:#eff8ff; border-color:#84caff; }
+.rpt-settings-note { background:var(--rpt-soft); border:1px solid var(--rpt-border); border-radius:7px; padding:10px 12px; font-size:12px; color:var(--rpt-muted); display:flex; gap:8px; }
+
+@media print {
+    @page { margin:12mm; }
+    .rpt-settings-wrap { max-width:none; margin:0; color:#111827; --rpt-muted:#27364a; --rpt-subtle:#374151; --rpt-border:#9ca3af; --rpt-soft:#fff; }
+    .rpt-settings-wrap .panel { box-shadow:none; break-inside:avoid; }
+    .rpt-settings-wrap .panel-heading { background:#fff !important; border-bottom:2px solid #111827; }
+    .rpt-settings-wrap .panel-heading h4, .rpt-settings-wrap .panel-heading p { color:#111827 !important; }
+    .rpt-settings-wrap .rpt-icon, .rpt-settings-wrap form, .rpt-settings-wrap .btn { display:none !important; }
+    .rpt-settings-wrap .table > thead > tr > th, .rpt-settings-wrap .table > tbody > tr > td { color:#111827 !important; background:#fff !important; border-color:#9ca3af !important; }
 }
 </style>
 
@@ -209,7 +238,7 @@
                             <select name="contract_port_id" class="form-control" id="contractPortSelect" required>
                                 <option value="">— Seleccionar puerto —</option>
                             </select>
-                            <small id="contractPortHint" style="color:#9ca3af; margin-top:3px; display:block;">
+                            <small id="contractPortHint" style="color:var(--rpt-subtle); margin-top:3px; display:block;">
                                 <i class="fa fa-info-circle"></i> Selecciona dispositivo primero
                             </small>
                             <div class="rpt-inline-status" id="contractPortInlineStatus" style="display:none;"></div>
@@ -221,7 +250,7 @@
                         <input type="number" name="contract_bandwidth" class="form-control" 
                                id="contractBandwidthInput" value="{{ old('contract_bandwidth', '') }}"
                                placeholder="Ej: 400" min="1" max="1000000" required>
-                        <small style="color:#9ca3af; margin-top:3px; display:block;">
+                        <small style="color:var(--rpt-subtle); margin-top:3px; display:block;">
                             Rango: 1 - 1.000.000 Mbps
                         </small>
                     </div>
@@ -233,7 +262,7 @@
                     </div>
                 </div>
 
-                <div style="background:#f8fafc; border:1px solid #e5eaf0; border-radius:8px; padding:12px; font-size:12px; color:#6b7280; display:flex; align-items:center; gap:8px;">
+                <div class="rpt-settings-note">
                     <i class="fa fa-lightbulb-o" style="color:{{ $accent }}; font-size:14px;"></i>
                     <span><strong>Validaciones:</strong> El puerto debe ser único por dispositivo. Velocidad debe estar entre 1 y 1.000.000 Mbps. No se permite duplicar umbrales.</span>
                 </div>
@@ -257,7 +286,7 @@
                     <tr>
                         <td><strong>{{ $item['hostname'] }}</strong></td>
                         <td><code style="font-weight:600; color:{{ $accent }};">{{ $item['ifName'] }}</code></td>
-                        <td style="color:#6b7280; font-size:12px;">{{ $item['ifAlias'] ?? '—' }}</td>
+                        <td style="color:var(--rpt-muted); font-size:12px;">{{ $item['ifAlias'] ?? '—' }}</td>
                         <td style="text-align:right; font-weight:600; color:{{ $accent }};">{{ $item['bandwidth'] }}</td>
                         <td style="text-align:center;">
                             <form method="post" action="{{ route('plugin.update', $plugin_name) }}" style="display:inline;">
@@ -438,14 +467,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         {{-- Presets rápidos --}}
         <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#6b7280;">Presets:</span>
-            @foreach([['99.9','~43 min/mes'],['99.5','~216 min/mes'],['99.0','~432 min/mes'],['98.0','~864 min/mes']] as [$pct,$hint])
+            <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--rpt-muted);">Presets:</span>
+            @foreach([['99.9','43 min/mes'],['99.5','216 min/mes'],['99.0','432 min/mes'],['98.0','864 min/mes']] as [$pct,$hint])
             <button type="button" class="btn btn-xs sla-preset-btn"
                     data-pct="{{ $pct }}"
                     style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; color:#334155; padding:3px 10px; transition:all .15s;"
                     onmouseover="this.style.background='{{ $accent }}'; this.style.color='#fff'; this.style.borderColor='{{ $accent }}';"
                     onmouseout="this.style.background='#f1f5f9'; this.style.color='#334155'; this.style.borderColor='#cbd5e1';">
-                {{ $pct }}% <span style="font-weight:400; opacity:.7;">({{ $hint }})</span>
+                {{ $pct }}% <span style="font-weight:500; color:inherit;">({{ $hint }})</span>
             </button>
             @endforeach
         </div>
@@ -463,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">— Seleccionar —</option>
                         @foreach($devices as $dev)
                             @php $alreadySet = collect($sla_targets ?? [])->firstWhere('device_id', $dev->device_id); @endphp
-                            <option value="{{ $dev->device_id }}" {{ $alreadySet ? 'disabled style=color:#9ca3af' : '' }}>
+                            <option value="{{ $dev->device_id }}" {{ $alreadySet ? 'disabled' : '' }}>
                                 {{ $dev->hostname }}{{ $alreadySet ? ' (configurado)' : '' }}
                             </option>
                         @endforeach
@@ -474,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="number" name="sla_target" id="sla_target_input"
                            class="form-control" step="0.01" min="90" max="100"
                            placeholder="Ej: 99.9" required oninput="slaPreview(this.value); slaValidate();">
-                    <div id="sla_preview" style="margin-top:4px; font-size:11px; color:#6b7280; min-height:16px;"></div>
+                    <div id="sla_preview" style="margin-top:4px; font-size:11px; color:var(--rpt-muted); min-height:16px;"></div>
                 </div>
                 <div>
                     <button type="submit" class="btn rpt-btn-save" id="slaSubmitBtn"
@@ -485,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </form>
 
-        <div style="background:#f8fafc; border:1px solid #e5eaf0; border-radius:8px; padding:10px 14px; font-size:12px; color:#6b7280; display:flex; align-items:flex-start; gap:8px; margin-top:12px;">
+        <div class="rpt-settings-note" style="align-items:flex-start; margin-top:12px;">
             <i class="fa fa-lightbulb-o" style="color:{{ $accent }}; font-size:14px; margin-top:1px; flex-shrink:0;"></i>
             <span>El SLA se calcula sobre el período seleccionado en el reporte. La línea roja discontinua en la gráfica muestra el límite de disponibilidad comprometido.</span>
         </div>
@@ -493,23 +522,23 @@ document.addEventListener('DOMContentLoaded', function() {
         {{-- Tabla de SLAs configurados --}}
         <div style="margin-top:20px;">
         @if(!empty($sla_targets))
-            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#6b7280; margin-bottom:8px;">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--rpt-muted); margin-bottom:8px;">
                 {{ count($sla_targets) }} {{ count($sla_targets) === 1 ? 'dispositivo configurado' : 'dispositivos configurados' }}
             </div>
             <div style="border:1px solid #e5eaf0; border-radius:8px; overflow:hidden;">
                 <table class="table table-hover" style="margin-bottom:0; font-size:13px;">
                     <thead>
                     <tr style="background:#f8fafc;">
-                        <th style="border-top:none; padding:10px 14px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:#6b7280;">Dispositivo</th>
-                        <th style="border-top:none; padding:10px 14px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; text-align:center;">SLA objetivo</th>
-                        <th style="border-top:none; padding:10px 14px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; text-align:center;">Downtime permitido / mes</th>
+                        <th style="border-top:none; padding:10px 14px;">Dispositivo</th>
+                        <th style="border-top:none; padding:10px 14px; text-align:center;">SLA objetivo</th>
+                        <th style="border-top:none; padding:10px 14px; text-align:center;">Downtime permitido / mes</th>
                         <th style="border-top:none; padding:10px 14px; text-align:center;"></th>
                     </tr>
                     </thead>
                     <tbody>
                     @foreach($sla_targets as $sla)
                         @php
-                            $downtimeMins = round((1 - $sla['sla_target'] / 100) * 30 * 24 * 60, 1);
+                            $downtimeMins = $sla['downtime_minutes'];
                             $slaColor = $sla['sla_target'] >= 99.9 ? '#067647' : ($sla['sla_target'] >= 99.0 ? '#92400e' : '#b42318');
                             $slaBg    = $sla['sla_target'] >= 99.9 ? '#ecfdf3' : ($sla['sla_target'] >= 99.0 ? '#fef9c3' : '#fef3f2');
                             $slaBorder= $sla['sla_target'] >= 99.9 ? '#abefc6' : ($sla['sla_target'] >= 99.0 ? '#fde68a' : '#fecdca');
@@ -527,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     {{ $sla['sla_target'] }}%
                                 </span>
                             </td>
-                            <td style="padding:10px 14px; text-align:center; vertical-align:middle; color:#6b7280; font-size:12px;">
+                            <td style="padding:10px 14px; text-align:center; vertical-align:middle; color:var(--rpt-muted); font-size:12px;">
                                 ≤ <strong style="color:#374151;">{{ $downtimeMins }}</strong> min
                             </td>
                             <td style="padding:10px 14px; text-align:center; vertical-align:middle;">
@@ -550,9 +579,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 </table>
             </div>
         @else
-            <div style="border:2px dashed #e2e8f0; border-radius:10px; padding:24px; text-align:center; color:#94a3b8;">
-                <i class="fa fa-check-circle" style="font-size:28px; margin-bottom:8px; display:block; opacity:.4;"></i>
-                <div style="font-size:13px; font-weight:600; color:#64748b;">Sin SLA configurados</div>
+            <div style="border:1px dashed var(--rpt-border); border-radius:8px; padding:20px; text-align:center; color:var(--rpt-subtle);">
+                <i class="fa fa-check-circle" style="font-size:28px; margin-bottom:8px; display:block; color:#667085;"></i>
+                <div style="font-size:13px; font-weight:700; color:var(--rpt-muted);">Sin SLA configurados</div>
                 <div style="font-size:12px; margin-top:4px;">Seleccione un dispositivo y defina el objetivo de disponibilidad.</div>
             </div>
         @endif
@@ -566,9 +595,11 @@ function slaPreview(val) {
     if (!el) return;
     var v = parseFloat(val);
     if (isNaN(v) || v <= 0 || v > 100) { el.innerHTML = ''; return; }
-    var mins  = ((1 - v / 100) * 30 * 24 * 60).toFixed(1);
-    var hrs   = (mins / 60).toFixed(2);
-    el.innerHTML = '<i class="fa fa-info-circle"></i> Downtime permitido/mes: <strong>' + mins + ' min</strong> (' + hrs + ' h)';
+    var mins = Math.abs(v - 99.9) < 0.00001
+        ? 43
+        : Math.round(((1 - v / 100) * 30 * 24 * 60) * 10) / 10;
+    var hrs = (mins / 60).toFixed(2);
+    el.innerHTML = '<i class="fa fa-info-circle"></i> Límite contractual mensual: <strong>≤ ' + mins + ' min</strong> (' + hrs + ' h)';
 }
 function slaValidate() {
     var dev = document.getElementById('sla_device_id');

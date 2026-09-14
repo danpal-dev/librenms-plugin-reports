@@ -50,7 +50,7 @@ class SimplePdfWriter
                 $current[] = $this->textCmd(
                     $k . ': ' . $v,
                     self::M_LEFT, $y - self::LH_META + 4,
-                    self::FS_META, false, '0.35 0.35 0.35'
+                    self::FS_META, false, '0.22 0.25 0.31'
                 );
                 $y -= self::LH_META;
             }
@@ -58,7 +58,7 @@ class SimplePdfWriter
         }
 
         // ── Separator ─────────────────────────────────────────────────────
-        $current[] = $this->hline($y, $usableW, '0.75 0.75 0.75');
+        $current[] = $this->hline($y, $usableW, '0.60 0.63 0.68');
         $y -= 5;
 
         // ── Table header ──────────────────────────────────────────────────
@@ -134,9 +134,9 @@ class SimplePdfWriter
         $usableW = self::PAGE_W - self::M_LEFT - self::M_RIGHT;
         $date    = date('d/m/Y H:i');
 
-        $cmds[] = $this->hline($footerY + 10, $usableW, '0.75 0.75 0.75');
-        $cmds[] = $this->textCmd("Generado por Moni  |  $date", self::M_LEFT, $footerY, 8, false, '0.55 0.55 0.55');
-        $cmds[] = $this->textCmd("Pag. $pageNum", self::PAGE_W - self::M_RIGHT - 30, $footerY, 8, false, '0.55 0.55 0.55');
+        $cmds[] = $this->hline($footerY + 10, $usableW, '0.60 0.63 0.68');
+        $cmds[] = $this->textCmd("Generado por Moni  |  $date", self::M_LEFT, $footerY, 8, false, '0.28 0.33 0.40');
+        $cmds[] = $this->textCmd("Pag. $pageNum", self::PAGE_W - self::M_RIGHT - 30, $footerY, 8, false, '0.28 0.33 0.40');
 
         return $cmds;
     }

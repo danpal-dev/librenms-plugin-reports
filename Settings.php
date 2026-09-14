@@ -3,6 +3,7 @@
 namespace App\Plugins\Reports;
 
 use App\Plugins\Hooks\SettingsHook;
+use App\Plugins\Reports\Support\SlaPolicy;
 use Illuminate\Support\Facades\DB;
 
 class Settings extends SettingsHook
@@ -166,6 +167,7 @@ class Settings extends SettingsHook
             'device_id' => (int) $r->device_id,
             'hostname' => (string) $r->hostname,
             'sla_target' => (float) $r->attrib_value,
+            'downtime_minutes' => SlaPolicy::monthlyDowntimeMinutes((float) $r->attrib_value),
         ], $records);
     }
 

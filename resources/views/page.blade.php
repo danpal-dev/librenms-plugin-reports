@@ -32,9 +32,9 @@
     --acc-h:   var(--fb-brand-700, #1d4ed8);
     --acc-l:   var(--fb-brand-500, #3b82f6);
     --rpt-text: #172033;
-    --rpt-muted: #667085;
-    --rpt-subtle: #98a2b3;
-    --rpt-border: #e4e7ec;
+    --rpt-muted: #475467;
+    --rpt-subtle: #667085;
+    --rpt-border: #d0d5dd;
     --rpt-surface-soft: #f8fafc;
 }
 
@@ -75,6 +75,7 @@
     text-decoration:none; transition:background .15s;
 }
 .rpt-hero-pill:hover { background:rgba(255,255,255,.24); color:#fff; text-decoration:none; }
+.rpt-hero-time { margin-left:auto; font-size:11px; color:rgba(255,255,255,.88); display:flex; align-items:center; gap:5px; }
 
 /* ─── Cards ───────────────────────────────────────────────────── */
 .rpt-card {
@@ -128,6 +129,9 @@
 .rpt-filters .form-control:focus {
     border-color:var(--acc); box-shadow:0 0 0 3px rgba(37,99,235,.1); outline:none;
 }
+.rpt-filter-disabled { color:var(--rpt-subtle); }
+.rpt-filter-disabled label { color:var(--rpt-subtle); }
+.rpt-filter-disabled .form-control { color:#667085; background:#f2f4f7; border-color:#d0d5dd; }
 
 .rpt-dates-row {
     display:none; margin-top:10px; padding-top:10px;
@@ -138,6 +142,7 @@
 .rpt-dates-row label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--rpt-muted); display:block; margin-bottom:4px; }
 .rpt-dates-row .form-control { border-radius:7px; border:1px solid #d0d5dd; font-size:12px; height:34px; }
 .bootstrap-datetimepicker-widget { z-index:9999 !important; }
+.rpt-help-text { color:var(--rpt-subtle); font-size:11px; }
 
 .rpt-btn-gen {
     display:inline-flex; align-items:center; gap:7px;
@@ -157,6 +162,14 @@
     display:flex; align-items:center; gap:9px;
     font-size:11px; color:#067647; font-weight:600;
 }
+.rpt-empty { padding:36px 16px; text-align:center; color:var(--rpt-muted); }
+.rpt-empty-icon {
+    width:52px; height:52px; border-radius:8px; margin:0 auto 10px;
+    display:flex; align-items:center; justify-content:center;
+    color:#475467; background:#f2f4f7; border:1px solid var(--rpt-border); font-size:16px;
+}
+.rpt-empty-title { margin:0; color:var(--rpt-text); font-size:14px; font-weight:750; }
+.rpt-empty-copy { max-width:440px; margin:5px auto 0; color:var(--rpt-muted); font-size:12px; line-height:1.5; }
 
 /* ─── KPI Cards — tipografía FIJA ─────────────────────────────── */
 .rpt-kpis {
@@ -165,8 +178,10 @@
     gap:8px;
 }
 .rpt-kpis-availability { grid-template-columns:repeat(5,minmax(0,1fr)); }
+/* Ancho de banda: 8 columnas en pantalla ancha, se reduce adaptativamente */
+.rpt-kpis--bw { grid-template-columns:repeat(8,minmax(0,1fr)); }
 .rpt-kpi {
-    border-radius:7px; padding:11px 12px 10px; min-height:92px;
+    border-radius:7px; padding:11px 12px 10px 16px; min-height:92px;
     border:1px solid var(--rpt-border); background:#fff;
     position:relative; overflow:hidden;
     box-shadow:0 1px 4px rgba(15,23,42,.05);
@@ -174,11 +189,11 @@
     display:flex; flex-direction:column; gap:3px; justify-content:center;
 }
 .rpt-kpi:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(15,23,42,.09); }
-/* barra superior */
+/* barra lateral de estado */
 .rpt-kpi::after {
-    content:""; position:absolute; top:0; left:0; right:0; height:2px;
+    content:""; position:absolute; top:0; bottom:0; left:0; width:4px;
     background:var(--kc, var(--acc));
-    border-radius:10px 10px 0 0;
+    border-radius:7px 0 0 7px;
 }
 /* glow de esquina */
 .rpt-kpi::before { display:none; }
@@ -189,20 +204,20 @@
 .rpt-kpi-unit, .rpt-kpi-meta { font-size:11px; color:var(--rpt-subtle); line-height:1.3; }
 
 /* Paleta de colores para KPI — variada */
-.rpt-kpi-blue    { --kc:#2563eb; border-color:#c7d7fe; background:#f7f9ff; }
-.rpt-kpi-indigo  { --kc:#4f46e5; border-color:#d3d5ff; background:#f8f8ff; }
-.rpt-kpi-amber   { --kc:#b54708; border-color:#fedf89; background:#fffbf3; }
-.rpt-kpi-orange  { --kc:#c4320a; border-color:#f9dbaf; background:#fffaf5; }
-.rpt-kpi-emerald { --kc:#067647; border-color:#abefc6; background:#f6fef9; }
-.rpt-kpi-teal    { --kc:#0e7090; border-color:#a5e7f0; background:#f5fcfd; }
-.rpt-kpi-rose    { --kc:#c01048; border-color:#fecdd6; background:#fff7f9; }
-.rpt-kpi-violet  { --kc:#6938ef; border-color:#d9d6fe; background:#f9f8ff; }
+.rpt-kpi-blue    { --kc:#2563eb; background:#f7f9ff; }
+.rpt-kpi-indigo  { --kc:#4f46e5; background:#f8f8ff; }
+.rpt-kpi-amber   { --kc:#b54708; background:#fffbf3; }
+.rpt-kpi-orange  { --kc:#c4320a; background:#fffaf5; }
+.rpt-kpi-emerald { --kc:#067647; background:#f6fef9; }
+.rpt-kpi-teal    { --kc:#0e7090; background:#f5fcfd; }
+.rpt-kpi-rose    { --kc:#c01048; background:#fff7f9; }
+.rpt-kpi-violet  { --kc:#6938ef; background:#f9f8ff; }
 .rpt-kpi-neutral { --kc:#667085; border-color:var(--rpt-border); background:var(--rpt-surface-soft); }
 
 /* Legacy aliases */
-.rpt-kpi-warn    { --kc:#b54708; border-color:#fedf89; background:#fffbf3; }
-.rpt-kpi-danger  { --kc:#d92d20; border-color:#fecdca; background:#fff8f7; }
-.rpt-kpi-success { --kc:#067647; border-color:#abefc6; background:#f6fef9; }
+.rpt-kpi-warn    { --kc:#b54708; background:#fffbf3; }
+.rpt-kpi-danger  { --kc:#d92d20; background:#fff8f7; }
+.rpt-kpi-success { --kc:#067647; background:#f6fef9; }
 
 /* ─── Export buttons ──────────────────────────────────────────── */
 .rpt-export-btn {
@@ -275,9 +290,43 @@
 .rpt-divider { height:1px; background:#e2e8f0; margin:16px 0; }
 
 /* ─── Responsive ──────────────────────────────────────────────── */
-@media (max-width:1200px) { .rpt-kpis { grid-template-columns:repeat(3,1fr); } .rpt-kpis-availability { grid-template-columns:repeat(5,minmax(120px,1fr)); } }
-@media (max-width:900px)  { .rpt-kpis, .rpt-kpis-availability { grid-template-columns:repeat(3,1fr); } .rpt-filters { grid-template-columns:1fr 1fr; } .rpt-filters .form-group:last-child { grid-column:1 / -1; } .rpt-filters .rpt-btn-gen { width:100%; justify-content:center; } .rpt-dates-row { grid-template-columns:1fr 1fr; } .rpt-availability-summary { grid-template-columns:1fr 1fr; } }
-@media (max-width:600px)  { .rpt-wrap { padding:8px; } .rpt-hero { padding:12px; } .rpt-kpis, .rpt-kpis-availability { grid-template-columns:1fr 1fr; } .rpt-filters { grid-template-columns:1fr; } .rpt-filters .form-group:last-child { grid-column:auto; } .rpt-dates-row { grid-template-columns:1fr; } .rpt-availability-summary { grid-template-columns:1fr; gap:10px; } .rpt-availability-sla { grid-template-columns:1fr; } .rpt-chart-wrap { height:200px; } }
+@media (max-width:1200px) { .rpt-kpis { grid-template-columns:repeat(3,1fr); } .rpt-kpis--bw { grid-template-columns:repeat(4,1fr); } .rpt-kpis-availability { grid-template-columns:repeat(5,minmax(120px,1fr)); } }
+@media (max-width:900px)  { .rpt-kpis, .rpt-kpis-availability { grid-template-columns:repeat(3,1fr); } .rpt-kpis--bw { grid-template-columns:repeat(4,1fr); } .rpt-filters { grid-template-columns:1fr 1fr; } .rpt-filters .form-group:last-child { grid-column:1 / -1; } .rpt-filters .rpt-btn-gen { width:100%; justify-content:center; } .rpt-dates-row { grid-template-columns:1fr 1fr; } .rpt-availability-summary { grid-template-columns:1fr 1fr; } }
+@media (max-width:600px)  { .rpt-wrap { padding:8px; } .rpt-hero { padding:12px; } .rpt-kpis, .rpt-kpis--bw, .rpt-kpis-availability { grid-template-columns:1fr 1fr; } .rpt-filters { grid-template-columns:1fr; } .rpt-filters .form-group:last-child { grid-column:auto; } .rpt-dates-row { grid-template-columns:1fr; } .rpt-availability-summary { grid-template-columns:1fr; gap:10px; } .rpt-availability-sla { grid-template-columns:1fr; } .rpt-chart-wrap { height:200px; } }
+
+@media print {
+    @page { margin:12mm; }
+    .rpt-wrap {
+        padding:0;
+        color:#111827;
+        --rpt-text:#111827;
+        --rpt-muted:#27364a;
+        --rpt-subtle:#374151;
+        --rpt-border:#9ca3af;
+        --rpt-surface-soft:#fff;
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+    }
+    .rpt-card--filters-panel, .rpt-card--audit, .rpt-export-btn, .rpt-hero-pill { display:none !important; }
+    .rpt-hero {
+        padding:8px 0 10px;
+        background:#fff !important;
+        color:#111827 !important;
+        border-radius:0;
+        box-shadow:none;
+        border-bottom:2px solid #111827;
+    }
+    .rpt-hero::before, .rpt-hero-icon { display:none; }
+    .rpt-hero h2, .rpt-hero p, .rpt-hero span { color:#111827 !important; }
+    .rpt-card { box-shadow:none; border-color:#9ca3af; break-inside:avoid; }
+    .rpt-card-header, .rpt-table-wrap thead th { background:#fff !important; }
+    .rpt-kpi { background:#fff !important; border-color:#9ca3af; box-shadow:none; break-inside:avoid; }
+    .rpt-kpi::after { width:4px; }
+    .rpt-kpi-label, .rpt-kpi-unit, .rpt-kpi-meta, .rpt-card-sub,
+    .rpt-availability-caption, .rpt-audit-time, .rpt-audit-ip { color:#27364a !important; }
+    .rpt-table-wrap tbody td { color:#111827 !important; background:#fff !important; }
+    .rpt-chart-wrap { height:230px; }
+}
 </style>
 
 
@@ -298,7 +347,7 @@
                     <i class="fa fa-cog fa-fw"></i> Configuración
                 </a>
                 @endcan
-                <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,.65); display:flex; align-items:center; gap:5px;">
+                <span class="rpt-hero-time">
                     <i class="fa fa-clock-o"></i> {{ now()->format('d/m/Y H:i') }}
                 </span>
             </div>
@@ -306,7 +355,7 @@
     </div>
 
     {{-- ═══ FILTROS ═══ --}}
-    <div class="rpt-card tw:mt-4">
+    <div class="rpt-card rpt-card--filters-panel tw:mt-4">
         <div class="rpt-card-header rpt-card-header--filters">
             <div>
                 <div class="rpt-card-title">
@@ -346,7 +395,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="form-group" style="{{ in_array($report_type, ['bandwidth','packets']) ? '' : 'opacity:.5; pointer-events:none;' }}">
+                    <div class="form-group{{ in_array($report_type, ['bandwidth','packets']) ? '' : ' rpt-filter-disabled' }}">
                         <label>Interfaz</label>
                         <select class="form-control" name="port_id">
                             <option value="0">— Seleccionar —</option>
@@ -410,7 +459,7 @@
                             Incluir último día completo
                         </label>
                     </div>
-                    <div class="tw:text-xs tw:text-slate-400 tw:flex tw:items-center tw:gap-1 tw:pb-0.5">
+                    <div class="rpt-help-text tw:flex tw:items-center tw:gap-1 tw:pb-0.5">
                         <i class="fa fa-info-circle fa-fw"></i>
                         Rango máximo recomendado: 1 año
                     </div>
@@ -436,10 +485,10 @@
     {{-- ═══ ESTADO VACÍO ═══ --}}
     @if((int) $device_id === 0)
         <div class="rpt-card tw:mt-4">
-            <div class="tw:flex tw:flex-col tw:items-center tw:gap-3 tw:py-14 tw:text-center">
-                <div class="tw:w-16 tw:h-16 tw:rounded-full tw:bg-slate-100 tw:border-2 tw:border-slate-200 tw:flex tw:items-center tw:justify-center tw:text-slate-400"><i class="fa fa-bar-chart"></i></div>
-                <p class="tw:text-base tw:font-bold tw:text-slate-600 tw:m-0">Seleccione los parámetros del reporte</p>
-                <p class="tw:text-sm tw:text-slate-400 tw:m-0 tw:max-w-sm tw:leading-relaxed">Elija un dispositivo y un periodo en el panel de arriba para generar el reporte ejecutivo con métricas, gráficos y exportaciones.</p>
+            <div class="rpt-empty">
+                <div class="rpt-empty-icon"><i class="fa fa-bar-chart"></i></div>
+                <p class="rpt-empty-title">Seleccione los parámetros del reporte</p>
+                <p class="rpt-empty-copy">Elija un dispositivo y un periodo en el panel de arriba para generar el reporte ejecutivo con métricas, gráficos y exportaciones.</p>
             </div>
         </div>
 
@@ -486,29 +535,24 @@
                     {{-- ══════════════ KPIs por tipo ══════════════ --}}
                     @if(!empty($summary))
                         @if($summary['type'] === 'bandwidth')
-                            <div class="rpt-kpis">
+                            <div class="rpt-kpis rpt-kpis--bw">
+                                {{-- Fila Entrada --}}
                                 <div class="rpt-kpi">
                                     <span class="rpt-kpi-icon"><i class="fa fa-arrow-circle-down"></i></span>
-                                    <span class="rpt-kpi-label">Prom. Entrada</span>
+                                    <span class="rpt-kpi-label">Promedio Entrada</span>
                                     <span class="rpt-kpi-value">{{ $summary['avg_in'] !== null ? number_format((float)$summary['avg_in'], 2) : '—' }}</span>
                                     <span class="rpt-kpi-unit">Mbps</span>
                                 </div>
-                                <div class="rpt-kpi">
-                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-circle-up"></i></span>
-                                    <span class="rpt-kpi-label">Prom. Salida</span>
-                                    <span class="rpt-kpi-value">{{ $summary['avg_out'] !== null ? number_format((float)$summary['avg_out'], 2) : '—' }}</span>
-                                    <span class="rpt-kpi-unit">Mbps</span>
-                                </div>
                                 <div class="rpt-kpi rpt-kpi-amber">
-                                    <span class="rpt-kpi-icon"><i class="fa fa-bolt"></i></span>
-                                    <span class="rpt-kpi-label">Pico Entrada</span>
+                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-up"></i></span>
+                                    <span class="rpt-kpi-label">Máx. Entrada</span>
                                     <span class="rpt-kpi-value">{{ $summary['max_in'] !== null ? number_format((float)$summary['max_in'], 2) : '—' }}</span>
                                     <span class="rpt-kpi-unit">Mbps</span>
                                 </div>
-                                <div class="rpt-kpi rpt-kpi-orange">
-                                    <span class="rpt-kpi-icon"><i class="fa fa-bolt"></i></span>
-                                    <span class="rpt-kpi-label">Pico Salida</span>
-                                    <span class="rpt-kpi-value">{{ $summary['max_out'] !== null ? number_format((float)$summary['max_out'], 2) : '—' }}</span>
+                                <div class="rpt-kpi rpt-kpi-indigo">
+                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-down"></i></span>
+                                    <span class="rpt-kpi-label">Mín. Entrada</span>
+                                    <span class="rpt-kpi-value">{{ $summary['min_in'] !== null ? number_format((float)$summary['min_in'], 2) : '—' }}</span>
                                     <span class="rpt-kpi-unit">Mbps</span>
                                 </div>
                                 <div class="rpt-kpi rpt-kpi-emerald">
@@ -516,6 +560,25 @@
                                     <span class="rpt-kpi-label">Total Entrada</span>
                                     <span class="rpt-kpi-value">{{ $summary['total_in_gb'] !== null ? number_format((float)$summary['total_in_gb'], 1) : '—' }}</span>
                                     <span class="rpt-kpi-unit">GB en el periodo</span>
+                                </div>
+                                {{-- Fila Salida --}}
+                                <div class="rpt-kpi">
+                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-circle-up"></i></span>
+                                    <span class="rpt-kpi-label">Promedio Salida</span>
+                                    <span class="rpt-kpi-value">{{ $summary['avg_out'] !== null ? number_format((float)$summary['avg_out'], 2) : '—' }}</span>
+                                    <span class="rpt-kpi-unit">Mbps</span>
+                                </div>
+                                <div class="rpt-kpi rpt-kpi-orange">
+                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-up"></i></span>
+                                    <span class="rpt-kpi-label">Máx. Salida</span>
+                                    <span class="rpt-kpi-value">{{ $summary['max_out'] !== null ? number_format((float)$summary['max_out'], 2) : '—' }}</span>
+                                    <span class="rpt-kpi-unit">Mbps</span>
+                                </div>
+                                <div class="rpt-kpi rpt-kpi-violet">
+                                    <span class="rpt-kpi-icon"><i class="fa fa-arrow-down"></i></span>
+                                    <span class="rpt-kpi-label">Mín. Salida</span>
+                                    <span class="rpt-kpi-value">{{ $summary['min_out'] !== null ? number_format((float)$summary['min_out'], 2) : '—' }}</span>
+                                    <span class="rpt-kpi-unit">Mbps</span>
                                 </div>
                                 <div class="rpt-kpi rpt-kpi-teal">
                                     <span class="rpt-kpi-icon"><i class="fa fa-cloud-upload"></i></span>
@@ -529,30 +592,30 @@
                             <div class="rpt-kpis">
                                 <div class="rpt-kpi {{ ($summary['total_err_in'] ?? 0) > 1000 ? 'rpt-kpi-danger' : (($summary['total_err_in'] ?? 0) > 100 ? 'rpt-kpi-warn' : '') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-exclamation-circle"></i></span>
-                                    <span class="rpt-kpi-label">Total Errores In</span>
+                                    <span class="rpt-kpi-label">Errores Entrada</span>
                                     <span class="rpt-kpi-value">{{ $summary['total_err_in'] !== null ? number_format($summary['total_err_in']) : '—' }}</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['total_err_out'] ?? 0) > 1000 ? 'rpt-kpi-danger' : (($summary['total_err_out'] ?? 0) > 100 ? 'rpt-kpi-warn' : '') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-exclamation-circle"></i></span>
-                                    <span class="rpt-kpi-label">Total Errores Out</span>
+                                    <span class="rpt-kpi-label">Errores Salida</span>
                                     <span class="rpt-kpi-value">{{ $summary['total_err_out'] !== null ? number_format($summary['total_err_out']) : '—' }}</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['total_dis_in'] ?? 0) > 500 ? 'rpt-kpi-warn' : '' }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-trash-o"></i></span>
-                                    <span class="rpt-kpi-label">Descartados In</span>
+                                    <span class="rpt-kpi-label">Desc. Entrada</span>
                                     <span class="rpt-kpi-value">{{ $summary['total_dis_in'] !== null ? number_format($summary['total_dis_in']) : '—' }}</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['total_dis_out'] ?? 0) > 500 ? 'rpt-kpi-warn' : '' }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-trash-o"></i></span>
-                                    <span class="rpt-kpi-label">Descartados Out</span>
+                                    <span class="rpt-kpi-label">Desc. Salida</span>
                                     <span class="rpt-kpi-value">{{ $summary['total_dis_out'] !== null ? number_format($summary['total_dis_out']) : '—' }}</span>
                                 </div>
                                 @if($summary['peak_day'])
                                 <div class="rpt-kpi rpt-kpi-danger">
                                     <span class="rpt-kpi-icon"><i class="fa fa-calendar-times-o"></i></span>
-                                    <span class="rpt-kpi-label">Día Pico</span>
+                                    <span class="rpt-kpi-label">Mayor Incidencia</span>
                                     <span class="rpt-kpi-value" style="font-size:14px;">{{ $summary['peak_day'] }}</span>
-                                    <span class="rpt-kpi-meta">mayor incidencia</span>
+                                    <span class="rpt-kpi-meta">día con más eventos</span>
                                 </div>
                                 @endif
                             </div>
@@ -561,25 +624,25 @@
                             <div class="rpt-kpis">
                                 <div class="rpt-kpi {{ ($summary['avg_cpu'] ?? 0) > 80 ? 'rpt-kpi-danger' : (($summary['avg_cpu'] ?? 0) > 60 ? 'rpt-kpi-warn' : 'rpt-kpi-success') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-microchip"></i></span>
-                                    <span class="rpt-kpi-label">CPU Prom.</span>
+                                    <span class="rpt-kpi-label">CPU Promedio</span>
                                     <span class="rpt-kpi-value">{{ $summary['avg_cpu'] !== null ? $summary['avg_cpu'] : '—' }}</span>
                                     <span class="rpt-kpi-meta">%</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['max_cpu'] ?? 0) > 90 ? 'rpt-kpi-danger' : (($summary['max_cpu'] ?? 0) > 75 ? 'rpt-kpi-warn' : '') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-tachometer"></i></span>
-                                    <span class="rpt-kpi-label">CPU Pico</span>
+                                    <span class="rpt-kpi-label">CPU Máx.</span>
                                     <span class="rpt-kpi-value">{{ $summary['max_cpu'] !== null ? $summary['max_cpu'] : '—' }}</span>
                                     <span class="rpt-kpi-meta">%</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['avg_mem'] ?? 0) > 80 ? 'rpt-kpi-danger' : (($summary['avg_mem'] ?? 0) > 60 ? 'rpt-kpi-warn' : 'rpt-kpi-success') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-server"></i></span>
-                                    <span class="rpt-kpi-label">Mem. Prom.</span>
+                                    <span class="rpt-kpi-label">Mem. Promedio</span>
                                     <span class="rpt-kpi-value">{{ $summary['avg_mem'] !== null ? $summary['avg_mem'] : '—' }}</span>
                                     <span class="rpt-kpi-meta">%</span>
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['max_mem'] ?? 0) > 90 ? 'rpt-kpi-danger' : (($summary['max_mem'] ?? 0) > 75 ? 'rpt-kpi-warn' : '') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-tachometer"></i></span>
-                                    <span class="rpt-kpi-label">Mem. Pico</span>
+                                    <span class="rpt-kpi-label">Mem. Máx.</span>
                                     <span class="rpt-kpi-value">{{ $summary['max_mem'] !== null ? $summary['max_mem'] : '—' }}</span>
                                     <span class="rpt-kpi-meta">%</span>
                                 </div>
@@ -623,10 +686,13 @@
                                     </span>
                                     <div style="font-size:11px; color:#334155; line-height:1.45;">
                                         Downtime real: <strong class="{{ $slaOk ? 'rpt-cell-ok' : 'rpt-cell-high' }}">{{ $minsDown }} min</strong><br>
-                                        SLA objetivo: <strong>{{ number_format($summary['sla_target_pct'], 2) }}%</strong>
-                                        <span style="color:var(--rpt-muted, #64748b); font-size:11px;">
-                                            (≤ {{ $summary['sla_threshold_mins'] }} min × {{ $summary['sla_months'] }} {{ $summary['sla_months'] === 1 ? 'mes' : 'meses' }})
+                                        Límite contractual: <strong>≤ {{ $summary['sla_monthly_threshold_mins'] }} min/mes</strong>
+                                        <span style="color:var(--rpt-muted); font-size:11px;">
+                                            (SLA {{ number_format($summary['sla_target_pct'], 1) }}%)
                                         </span>
+                                        @if($summary['sla_months'] > 1)
+                                            <br>Período evaluado: <strong>≤ {{ $summary['sla_threshold_mins'] }} min en {{ $summary['sla_months'] }} meses</strong>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -652,25 +718,25 @@
                                 </div>
                                 <div class="rpt-kpi {{ ($summary['n_outages'] ?? 0) > 5 ? 'rpt-kpi-warn' : (($summary['n_outages'] ?? 0) === 0 ? 'rpt-kpi-success' : '') }}">
                                     <span class="rpt-kpi-icon"><i class="fa fa-exclamation-triangle"></i></span>
-                                    <span class="rpt-kpi-label">N° Caídas</span>
+                                    <span class="rpt-kpi-label">N° Interrupciones</span>
                                     <span class="rpt-kpi-value">{{ $summary['n_outages'] }}</span>
-                                    <span class="rpt-kpi-meta">eventos</span>
+                                    <span class="rpt-kpi-meta">eventos registrados</span>
                                 </div>
                                 <div class="rpt-kpi">
                                     <span class="rpt-kpi-icon"><i class="fa fa-clock-o"></i></span>
                                     <span class="rpt-kpi-label">MTTR</span>
                                     @if(($summary['n_outages'] ?? 0) > 0)
                                         <span class="rpt-kpi-value">{{ number_format($minsDown / $summary['n_outages'], 1) }}</span>
-                                        <span class="rpt-kpi-meta">min/caída</span>
+                                        <span class="rpt-kpi-meta">min/interrupción</span>
                                     @else
                                         <span class="rpt-kpi-value">—</span>
                                     @endif
                                 </div>
                                 <div class="rpt-kpi rpt-kpi-neutral">
                                     <span class="rpt-kpi-icon"><i class="fa fa-sliders"></i></span>
-                                    <span class="rpt-kpi-label">SLA objetivo</span>
-                                    <span class="rpt-kpi-value">{{ number_format($summary['sla_target_pct'], 2) }}</span>
-                                    <span class="rpt-kpi-unit">% (≤ {{ $summary['sla_threshold_mins'] }} min)</span>
+                                    <span class="rpt-kpi-label">Límite contractual</span>
+                                    <span class="rpt-kpi-value">{{ $summary['sla_monthly_threshold_mins'] }}</span>
+                                    <span class="rpt-kpi-unit">min / mes · SLA {{ number_format($summary['sla_target_pct'], 1) }}%</span>
                                 </div>
                             </div>
                         @endif
@@ -680,7 +746,7 @@
                     @if(!empty($summary) && isset($summary['chart_labels']))
                         <div class="rpt-card tw:mt-4">
                             <div style="padding:9px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; border-radius:7px 7px 0 0;">
-                                <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:#64748b; display:flex; align-items:center; gap:6px;">
+                                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--rpt-muted); display:flex; align-items:center; gap:6px;">
                                     <i class="fa fa-area-chart" style="color:#7c3aed;"></i> Evolución del periodo
                                 </div>
                             </div>
@@ -698,21 +764,21 @@
                         <table class="table" style="margin-bottom:0;">
                             <thead>
                             <tr>
-                                <th>Inicio Caída</th>
-                                <th>Fin Caída</th>
+                                <th>Inicio Interrupción</th>
+                                <th>Fin Interrupción</th>
                                 <th>Duración (min)</th>
                             </tr>
                             </thead>
                             <tbody>
                             @forelse($availability_events as $event)
                                 <tr class="rpt-row-high">
-                                    <td>{{ $event['Inicio Caida'] }}</td>
-                                    <td>{{ $event['Fin Caida'] }}</td>
-                                    <td class="rpt-cell-high">{{ $event['Duracion Caida (min)'] }}</td>
+                                    <td>{{ $event['Inicio Interrupción'] }}</td>
+                                    <td>{{ $event['Fin Interrupción'] }}</td>
+                                    <td class="rpt-cell-high">{{ $event['Duración (min)'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-center">No se registraron caídas en el período.</td>
+                                    <td colspan="3" class="text-center">No se registraron interrupciones en el período.</td>
                                 </tr>
                             @endforelse
                             </tbody>
@@ -736,7 +802,7 @@
                                         if (($cpu !== null && $cpu > 85) || ($mem !== null && $mem > 85)) $rowClass = 'rpt-row-high';
                                         elseif (($cpu !== null && $cpu > 70) || ($mem !== null && $mem > 70)) $rowClass = 'rpt-row-warn';
                                     } elseif ($report_type === 'packets') {
-                                        $errSum = ((float)($row['Errores In'] ?: 0)) + ((float)($row['Errores Out'] ?: 0));
+                                        $errSum = ((float)($row['Errores Entrada'] ?: 0)) + ((float)($row['Errores Salida'] ?: 0));
                                         if ($errSum > 1000) $rowClass = 'rpt-row-high';
                                         elseif ($errSum > 100) $rowClass = 'rpt-row-warn';
                                     }
@@ -927,8 +993,8 @@ $(function () {
         var c1     = brand;           /* azul marca  — Entrada / CPU     */
         var c2     = '#0891b2';       /* teal-600    — Salida             */
         var c3     = '#7c3aed';       /* violet-600  — Memoria            */
-        var c4     = '#d97706';       /* amber-600   — Errores In         */
-        var c5     = '#ea580c';       /* orange-600  — Errores Out        */
+        var c4     = '#d97706';       /* amber-600   — Errores Entrada    */
+        var c5     = '#ea580c';       /* orange-600  — Errores Salida     */
         var cThres = '#dc2626';       /* red-600     — Umbral (exclusivo) */
 
         var labels  = {!! json_encode($summary['chart_labels']) !!};
@@ -978,7 +1044,7 @@ $(function () {
         @elseif($summary['type'] === 'packets')
         var datasets = [
             {
-                label: 'Errores In',
+                label: 'Errores Entrada',
                 data:  {!! json_encode($summary['chart_err_in']) !!},
                 borderColor: c4,
                 backgroundColor: c4 + '28',
@@ -989,7 +1055,7 @@ $(function () {
                 spanGaps: true,
             },
             {
-                label: 'Errores Out',
+                label: 'Errores Salida',
                 data:  {!! json_encode($summary['chart_err_out']) !!},
                 borderColor: c5,
                 backgroundColor: c5 + '28',

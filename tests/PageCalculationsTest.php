@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Plugins\Reports\Tests;
 
 use App\Plugins\Reports\Page;
+use App\Plugins\Reports\Support\SlaPolicy;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -21,6 +22,12 @@ class PageCalculationsTest extends TestCase
     {
         $this->assertTrue($this->invoke('compliesWithSla', [43 * 60, 43.0]));
         $this->assertFalse($this->invoke('compliesWithSla', [(43 * 60) + 1, 43.0]));
+    }
+
+    public function testContractSlaUsesExactlyFortyThreeMinutes(): void
+    {
+        $this->assertSame(43.0, SlaPolicy::monthlyDowntimeMinutes(99.9));
+        $this->assertSame(216.0, SlaPolicy::monthlyDowntimeMinutes(99.5));
     }
 
     public function testSlaMonthsMatchReportPeriod(): void
