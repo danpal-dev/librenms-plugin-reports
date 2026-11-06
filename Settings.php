@@ -4,13 +4,14 @@ namespace App\Plugins\Reports;
 
 use App\Plugins\Hooks\SettingsHook;
 use App\Plugins\Reports\Support\SlaPolicy;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 
 class Settings extends SettingsHook
 {
-    public function authorize(\Illuminate\Contracts\Auth\Authenticatable $user): bool
+    public function authorize(?Authenticatable $user): bool
     {
-        return $user->can('admin');
+        return $user !== null && $user->can('admin');
     }
 
     public function data(array $settings): array
@@ -50,6 +51,12 @@ class Settings extends SettingsHook
             'ports_by_device' => $portsByDevice,
             'contract_bandwidths' => $contractBandwidths,
             'sla_targets' => $slaTargets,
+            'docs' => [
+                'guia'         => Page::readDoc(__DIR__ . '/GUÍA.md'),
+                'faq'          => Page::readDoc(__DIR__ . '/FAQ.md'),
+                'instalacion'  => Page::readDoc(__DIR__ . '/INSTALACIÓN.md'),
+                'arquitectura' => Page::readDoc(__DIR__ . '/ARQUITECTURA.md'),
+            ],
         ];
     }
 

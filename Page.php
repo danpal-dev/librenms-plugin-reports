@@ -7,18 +7,21 @@ use App\Plugins\Reports\Support\SimplePdfWriter;
 use App\Plugins\Reports\Support\SimpleXlsxWriter;
 use App\Plugins\Reports\Support\SlaPolicy;
 use DateTime;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 
 class Page extends PageHook
 {
+    public const PLUGIN_VERSION = '1.2.0';
+
     private const STEP_DAY = 86400;
     private const STEP_HOUR = 3600;
     private array $availabilityMetrics = [];
     private array $availabilityEvents = [];
 
-    public function authorize(\Illuminate\Contracts\Auth\Authenticatable $user): bool
+    public function authorize(?Authenticatable $user): bool
     {
-        return true;
+        return $user !== null;
     }
 
     public function data(array $settings = []): array
@@ -242,6 +245,8 @@ class Page extends PageHook
                     'chart_labels'  => array_column($reportData, 'Fecha'),
                     'chart_in'      => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Entrada Prom (Mbps)')),
                     'chart_out'     => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Salida Prom (Mbps)')),
+                    'chart_in_max'  => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Entrada Máx. (Mbps)')),
+                    'chart_out_max' => array_map(fn ($v) => $v === '' || $v === null ? null : (float) $v, array_column($reportData, 'Salida Máx. (Mbps)')),
                     'contract_bandwidth' => $contractBandwidth > 0 ? (int) $contractBandwidth : 0,
                 ];
             } elseif ($reportType === 'packets') {
@@ -355,7 +360,7 @@ class Page extends PageHook
 
         $recentAudits = auth()->user()?->can('admin') ? $this->getRecentAudits(20) : [];
 
-        return [
+        return $this->wrap([
             'title' => (string) ($settings['page_title'] ?? 'Reportes'),
             'subtitle' => (string) ($settings['page_subtitle'] ?? 'Visualizacion profesional de desempeno y disponibilidad para toma de decisiones.'),
             'chart_type' => (string) ($settings['chart_type'] ?? 'line'),
@@ -382,6 +387,43 @@ class Page extends PageHook
             'export_excel_url' => url('plugin/Reports') . '?' . http_build_query(array_merge($baseParams, ['action' => 'export_excel'])),
             'export_pdf_url' => url('plugin/Reports') . '?' . http_build_query(array_merge($baseParams, ['action' => 'export_pdf'])),
             'contract_bandwidth' => $contractBandwidth,
+        ]);
+    }
+
+    private function wrap(array $base): array
+    {
+        $pluginDir = dirname(__FILE__);
+
+        return array_merge($base, [
+            'plugin_version' => self::PLUGIN_VERSION,
+        ]);
+    }
+
+    public static function readDoc(string $filePath): array
+    {
+        if (! is_file($filePath) || ! is_readable($filePath)) {
+            return ['title' => basename($filePath), 'lines' => [], 'empty' => true];
+        }
+
+        $raw = @file($filePath, FILE_IGNORE_NEW_LINES);
+        if (! is_array($raw)) {
+            return ['title' => basename($filePath), 'lines' => [], 'empty' => true];
+        }
+
+        $lines = array_values(array_filter($raw, fn ($l) => $l !== false));
+        $title = '';
+        foreach ($lines as $l) {
+            $trim = ltrim($l, "# \t");
+            if ($trim !== '') {
+                $title = $trim;
+                break;
+            }
+        }
+
+        return [
+            'title' => $title !== '' ? $title : basename($filePath),
+            'lines' => $lines,
+            'empty' => count($lines) === 0,
         ];
     }
 

@@ -90,6 +90,30 @@
 </style>
 
 <div class="rpt-settings-wrap">
+
+    {{-- ═══ PILLS HEADER VERSIÓN UNIFORME FLOWBITE ═══ --}}
+    <div style="display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin:0 0 12px; padding:0 2px;">
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:linear-gradient(135deg, #2563eb 0%, #6366f1 100%); border:1px solid rgba(255,255,255,.15); color:#fff; font-size:11px; font-weight:700;">
+            <i class="fa fa-tag fa-fw"></i> v1.2.0
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); color:#059669; font-size:11px; font-weight:700;">
+            <i class="fa fa-check-circle fa-fw"></i> 3× authorize nullable OK
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#b45309; font-size:11px; font-weight:650;">
+            <i class="fa fa-database fa-fw"></i> devices_attribs (sin migraciones)
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); color:#059669; font-size:11px; font-weight:700;">
+            <i class="fa fa-check-circle fa-fw"></i> ACTIVO
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:rgba(124,58,237,.1); border:1px solid rgba(124,58,237,.3); color:#7c3aed; font-size:11px; font-weight:700;">
+            <i class="fa fa-file-text-o fa-fw"></i> 4 Docs integradas
+        </span>
+        <span style="flex:1 1 auto;"></span>
+        <a href="{{ url('plugin/Reports') }}" style="display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; background:rgba(124,58,237,.08); border:1px solid rgba(124,58,237,.3); color:#7c3aed; font-size:11px; font-weight:700; text-decoration:none;">
+            <i class="fa fa-arrow-left fa-fw"></i> Volver al generador de reportes
+        </a>
+    </div>
+
     <div class="panel panel-default">
         <div class="panel-heading">
             <div style="display:flex; align-items:center; gap:16px;">
@@ -587,6 +611,78 @@ document.addEventListener('DOMContentLoaded', function() {
         @endif
         </div>
     </div>
+
+    {{-- ════════════════════════════════════════════════════════════
+         ACORDEÓN DOCUMENTACIÓN INTEGRADA (4 tabs estilo RrdFix)
+         ════════════════════════════════════════════════════════════ --}}
+    <details open class="rpt-accordion tw:mt-6" style="border:1px solid var(--rpt-border,#d0d5dd); border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(15,23,42,.05);">
+        <summary style="padding:12px 18px; background:linear-gradient(135deg, #0f172a 0%, var(--fb-brand-700,#1d4ed8) 100%); color:#fff; font-size:13px; font-weight:700; cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;">
+            <i class="fa fa-book fa-fw"></i> Documentación integrada del plugin
+            <span style="margin-left:auto; font-size:11px; opacity:.85;">4 secciones · Haz clic para expandir/colapsar</span>
+        </summary>
+        <div style="padding:16px 18px 20px;">
+            {{-- Tabs de navegación por documento --}}
+            <div id="rpt-docs-tabs" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #eef2f7;">
+                <button type="button" data-rpt-doc-tab="guia" class="rpt-doc-tab-btn rpt-doc-tab--active"
+                        style="padding:7px 14px; border:1px solid var(--fb-brand-500,#3b82f6); background:rgba(37,99,235,.08); color:var(--fb-brand-700,#1d4ed8); border-radius:7px; font-size:12px; font-weight:650; cursor:pointer;">
+                    <i class="fa fa-map-signs fa-fw"></i> Guía de uso
+                </button>
+                <button type="button" data-rpt-doc-tab="faq" class="rpt-doc-tab-btn"
+                        style="padding:7px 14px; border:1px solid #e5e7eb; background:#fff; color:#475467; border-radius:7px; font-size:12px; font-weight:500; cursor:pointer;">
+                    <i class="fa fa-question-circle fa-fw"></i> FAQ / Solución de errores
+                </button>
+                <button type="button" data-rpt-doc-tab="instalacion" class="rpt-doc-tab-btn"
+                        style="padding:7px 14px; border:1px solid #e5e7eb; background:#fff; color:#475467; border-radius:7px; font-size:12px; font-weight:500; cursor:pointer;">
+                    <i class="fa fa-cogs fa-fw"></i> Instalación y persistencia
+                </button>
+                <button type="button" data-rpt-doc-tab="arquitectura" class="rpt-doc-tab-btn"
+                        style="padding:7px 14px; border:1px solid #e5e7eb; background:#fff; color:#475467; border-radius:7px; font-size:12px; font-weight:500; cursor:pointer;">
+                    <i class="fa fa-sitemap fa-fw"></i> Arquitectura técnica
+                </button>
+            </div>
+
+            {{-- Panel: GUÍA --}}
+            <div data-rpt-doc-panel="guia" class="rpt-doc-panel">
+                @include('Reports::resources.views.markdown-lines', ['lines' => $docs['guia']['lines'] ?? []])
+            </div>
+            {{-- Panel: FAQ --}}
+            <div data-rpt-doc-panel="faq" class="rpt-doc-panel" style="display:none;">
+                @include('Reports::resources.views.markdown-lines', ['lines' => $docs['faq']['lines'] ?? []])
+            </div>
+            {{-- Panel: INSTALACIÓN --}}
+            <div data-rpt-doc-panel="instalacion" class="rpt-doc-panel" style="display:none;">
+                @include('Reports::resources.views.markdown-lines', ['lines' => $docs['instalacion']['lines'] ?? []])
+            </div>
+            {{-- Panel: ARQUITECTURA --}}
+            <div data-rpt-doc-panel="arquitectura" class="rpt-doc-panel" style="display:none;">
+                @include('Reports::resources.views.markdown-lines', ['lines' => $docs['arquitectura']['lines'] ?? []])
+            </div>
+        </div>
+    </details>
+
+    {{-- ═══ FOOTER DOCS + PERSISTENCIA POST-UPGRADE ═══ --}}
+    <div style="margin-top:18px; padding:14px 18px; border:1px dashed var(--rpt-border,#cbd5e1); border-radius:10px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <i class="fa fa-book" style="font-size:20px; color:#7c3aed;"></i>
+            <div>
+                <div style="font-size:12px; font-weight:700; color:#111827;">Documentación integrada (4 secciones)</div>
+                <div style="font-size:11px; color:#475467; margin-top:2px;">
+                    Guía de uso · FAQ errores · Instalación · Arquitectura
+                </div>
+            </div>
+        </div>
+        <div style="flex:1 1 auto;"></div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="padding:3px 9px; border-radius:6px; background:rgba(16,185,129,.1); color:#059669; font-size:11px; font-weight:700; border:1px solid rgba(16,185,129,.3);">
+                <i class="fa fa-shield fa-fw"></i> Persistencia post-daily.sh
+            </span>
+            <span style="font-size:11px; color:#475467;">
+                <i class="fa fa-info-circle"></i>
+                Repositorio Git independiente → los ajustes y código NO se pierden al actualizar LibreNMS
+            </span>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -617,3 +713,42 @@ document.querySelectorAll('.sla-preset-btn').forEach(function(btn) {
 });
 </script>
 </div>
+
+<script>
+/* ────────────────────────────────────────────────────────────────
+   Toggler de tabs documentación Reports
+   ──────────────────────────────────────────────────────────────── */
+(function () {
+    var tabs = document.querySelectorAll('#rpt-docs-tabs .rpt-doc-tab-btn');
+    tabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var key = btn.getAttribute('data-rpt-doc-tab');
+            tabs.forEach(function (b) {
+                var active = b === btn;
+                if (active) {
+                    b.style.borderColor   = 'var(--fb-brand-500,#3b82f6)';
+                    b.style.background    = 'rgba(37,99,235,.08)';
+                    b.style.color         = 'var(--fb-brand-700,#1d4ed8)';
+                    b.style.fontWeight    = '650';
+                    b.classList.add('rpt-doc-tab--active');
+                } else {
+                    b.style.borderColor = '#e5e7eb';
+                    b.style.background  = '#fff';
+                    b.style.color       = '#475467';
+                    b.style.fontWeight  = '500';
+                    b.classList.remove('rpt-doc-tab--active');
+                }
+            });
+            document.querySelectorAll('.rpt-doc-panel').forEach(function (panel) {
+                panel.style.display = (panel.getAttribute('data-rpt-doc-panel') === key) ? 'block' : 'none';
+            });
+            if (window.scrollTo) {
+                var rect = document.getElementById('rpt-docs-tabs')?.getBoundingClientRect();
+                if (rect && rect.top < 0) {
+                    window.scrollBy(0, rect.top - 80);
+                }
+            }
+        });
+    });
+})();
+</script>

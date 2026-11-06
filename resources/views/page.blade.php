@@ -250,6 +250,18 @@
 .rpt-table-wrap tbody tr:nth-child(even) td { background:#fff; }
 .rpt-table-wrap tbody tr:hover td { background:rgba(37,99,235,.05) !important; }
 .rpt-row-warn td { background:#fffbf3 !important; }
+.rpt-table-wrap th.rpt-num, .rpt-table-wrap td.rpt-num { text-align:right; font-variant-numeric:tabular-nums; }
+.rpt-table-wrap th .rpt-unit { display:block; font-size:10px; font-weight:600; color:#475467; text-transform:none; }
+.rpt-table-wrap td.rpt-muted { color:#475467; }
+.rpt-table-wrap td.rpt-cell-over { background:#fef3f2 !important; }
+.rpt-table-wrap td.rpt-cell-near { background:#fffaeb !important; }
+.rpt-table-wrap thead th.rpt-grp { text-align:center; font-size:11px; letter-spacing:.04em; border-bottom:1px solid #d0d5dd !important; padding:6px 10px; }
+.rpt-table-wrap thead th.rpt-grp--in  { color:#3b6d0f; background:#f1f8e8; box-shadow:inset 0 3px 0 #4d8f14; }
+.rpt-table-wrap thead th.rpt-grp--out { color:#6e2f6a; background:#f6ebf5; box-shadow:inset 0 3px 0 #94428f; }
+.rpt-table-wrap thead th.rpt-grp--tot { color:#344054; background:#eef2f6; box-shadow:inset 0 3px 0 #667085; }
+.rpt-table-wrap thead th.rpt-grp--thr { color:#b42318; background:#fef3f2; box-shadow:inset 0 3px 0 #dc2626; }
+.rpt-table-wrap .rpt-sep { border-left:1px solid #d0d5dd; }
+.rpt-table-wrap td.rpt-date { font-weight:600; white-space:nowrap; }
 .rpt-row-high td { background:#fff8f7 !important; }
 .rpt-row-ok   td { background:#f6fef9 !important; }
 .rpt-cell-warn { color:#b54708; font-weight:700; }
@@ -325,6 +337,7 @@
     .rpt-kpi-label, .rpt-kpi-unit, .rpt-kpi-meta, .rpt-card-sub,
     .rpt-availability-caption, .rpt-audit-time, .rpt-audit-ip { color:#27364a !important; }
     .rpt-table-wrap tbody td { color:#111827 !important; background:#fff !important; }
+    .rpt-table-wrap th .rpt-unit, .rpt-table-wrap td.rpt-muted { color:#27364a !important; }
     .rpt-chart-wrap { height:230px; }
 }
 </style>
@@ -341,16 +354,6 @@
         <div class="rpt-hero-body tw:flex-1 tw:min-w-0">
             <h2>{{ $title }}</h2>
             <p>{{ $subtitle }}</p>
-            <div class="rpt-hero-actions">
-                @can('admin')
-                <a class="rpt-hero-pill" href="{{ route('plugin.settings', ['plugin' => 'Reports']) }}">
-                    <i class="fa fa-cog fa-fw"></i> Configuración
-                </a>
-                @endcan
-                <span class="rpt-hero-time">
-                    <i class="fa fa-clock-o"></i> {{ now()->format('d/m/Y H:i') }}
-                </span>
-            </div>
         </div>
     </div>
 
@@ -786,11 +789,43 @@
                         @else
                         <table class="table" style="margin-bottom:0;">
                             <thead>
+                            @if($report_type === 'bandwidth')
+                            @php
+                                $bwGroups = [
+                                    ['Entrada', 'in',  ['Entrada Prom (Mbps)' => 'Prom', 'Entrada Máx. (Mbps)' => 'Máx.', 'Entrada Mín. (Mbps)' => 'Mín.']],
+                                    ['Salida',  'out', ['Salida Prom (Mbps)'  => 'Prom', 'Salida Máx. (Mbps)'  => 'Máx.', 'Salida Mín. (Mbps)'  => 'Mín.']],
+                                    ['Volumen del día', 'tot', ['Total Entrada (GB)' => 'Entrada', 'Total Salida (GB)' => 'Salida']],
+                                    ['Contrato', 'thr', ['Umbral Contratado (Mbps)' => 'Umbral']],
+                                ];
+                            @endphp
                             <tr>
-                                @foreach(array_keys($report_data[0]) as $col)
-                                    <th>{{ $col }}</th>
+                                <th rowspan="2" style="vertical-align:bottom;">Fecha</th>
+                                @foreach($bwGroups as $g)
+                                    <th colspan="{{ count($g[2]) }}" class="rpt-grp rpt-grp--{{ $g[1] }} rpt-sep">{{ $g[0] }}</th>
                                 @endforeach
                             </tr>
+                            <tr>
+                                @foreach($bwGroups as $g)
+                                    @foreach($g[2] as $full => $short)
+                                        @php preg_match('/\(([^)]+)\)/u', $full, $um); @endphp
+                                        <th class="rpt-num {{ $loop->first ? 'rpt-sep' : '' }}">{{ $short }}<span class="rpt-unit">{{ $um[1] ?? '' }}</span></th>
+                                    @endforeach
+                                @endforeach
+                            </tr>
+                            @else
+                            <tr>
+                                @foreach(array_keys($report_data[0]) as $col)
+                                    @php
+                                        $isNumCol = is_numeric($report_data[0][$col] ?? null);
+                                        $hasUnit  = preg_match('/^(.*?)\s*\(([^)]+)\)\s*$/u', $col, $hm);
+                                    @endphp
+                                    <th class="{{ $isNumCol ? 'rpt-num' : '' }}">
+                                        {{ $hasUnit ? $hm[1] : $col }}
+                                        @if($hasUnit)<span class="rpt-unit">{{ $hm[2] }}</span>@endif
+                                    </th>
+                                @endforeach
+                            </tr>
+                            @endif
                             </thead>
                             <tbody>
                             @foreach($report_data as $row)
@@ -820,7 +855,28 @@
                                                 }
                                             }
                                         @endphp
-                                        <td class="{{ $cellClass }}">{{ $val }}</td>
+                                        @php
+                                            $isNum = is_numeric($val);
+                                            $out   = $val;
+                                            if ($isNum) {
+                                                $decimals = (is_int($val) || (string) (int) $val === (string) $val) ? 0 : 2;
+                                                $out = number_format((float) $val, $decimals, '.', ',');
+                                                $cellClass .= ' rpt-num';
+                                            } elseif ($col === 'Fecha') {
+                                                $cellClass .= ' rpt-date';
+                                            }
+                                            if ($report_type === 'bandwidth' && $isNum) {
+                                                $limit = is_numeric($row['Umbral Contratado (Mbps)'] ?? null) ? (float) $row['Umbral Contratado (Mbps)'] : 0;
+                                                if ($limit > 0 && in_array($col, ['Entrada Máx. (Mbps)', 'Salida Máx. (Mbps)'], true)) {
+                                                    if ((float) $val > $limit)            $cellClass .= ' rpt-cell-over rpt-cell-high';
+                                                    elseif ((float) $val > $limit * 0.8)  $cellClass .= ' rpt-cell-near rpt-cell-warn';
+                                                }
+                                                if ($col === 'Umbral Contratado (Mbps)') $cellClass .= ' rpt-muted';
+                                            }
+                                            if ($val === '' || $val === null) { $out = '—'; $cellClass .= ' rpt-muted'; }
+                                            if ($report_type === 'bandwidth' && in_array($col, ['Entrada Prom (Mbps)', 'Salida Prom (Mbps)', 'Total Entrada (GB)', 'Umbral Contratado (Mbps)'], true)) { $cellClass .= ' rpt-sep'; }
+                                        @endphp
+                                        <td class="{{ trim($cellClass) }}">{{ $out }}</td>
                                     @endforeach
                                 </tr>
                             @endforeach
@@ -939,9 +995,11 @@
         @endif
     </div>
     @endcan
+
 </div>
 
 <script>
+/* ─── Código original Reports rptToggleDates ─── */
 function rptToggleDates(period) {
     var row = document.getElementById('rpt-custom-dates');
     if (!row) return;
@@ -1000,34 +1058,71 @@ $(function () {
         var labels  = {!! json_encode($summary['chart_labels']) !!};
 
         @if($summary['type'] === 'bandwidth')
+        /* Relleno en degradado: color pleno junto a la línea, transparente hacia el eje */
+        var gradient = function (color) {
+            return function (ctx) {
+                var area = ctx.chart.chartArea;
+                if (!area) { return color + '30'; }
+                var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                g.addColorStop(0, color + '55');
+                g.addColorStop(1, color + '0d');
+                return g;
+            };
+        };
+        var cIn  = '#4d8f14';  /* verde oscuro — Entrada (contraste ≥3:1 sobre blanco) */
+        var cOut = '#94428f';  /* morado — Salida */
         var datasets = [
             {
                 label: 'Entrada Prom (Mbps)',
                 data:  {!! json_encode($summary['chart_in']) !!},
-                borderColor: c1,
-                backgroundColor: c1 + '28',
+                borderColor: cIn,
+                backgroundColor: gradient(cIn),
                 borderWidth: 2,
                 pointRadius: labels.length > 60 ? 0 : 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: cIn,
+                pointHoverRadius: 5,
                 tension: 0.35,
-                fill: true,
+                cubicInterpolationMode: 'monotone',
+                order: 1,
+                fill: 'origin',
                 spanGaps: true,
             },
             {
                 label: 'Salida Prom (Mbps)',
                 data:  {!! json_encode($summary['chart_out']) !!},
-                borderColor: c2,
-                backgroundColor: c2 + '28',
+                borderColor: cOut,
+                backgroundColor: gradient(cOut),
                 borderWidth: 2,
                 pointRadius: labels.length > 60 ? 0 : 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: cOut,
+                pointHoverRadius: 5,
                 tension: 0.35,
-                fill: true,
+                cubicInterpolationMode: 'monotone',
+                order: 1,
+                fill: 'origin',
                 spanGaps: true,
             }
         ];
+        /* Máximos diarios (los de la tabla): banda tenue entre promedio y máximo + borde punteado */
+        [['Entrada Máx (Mbps)', {!! json_encode($summary['chart_in_max']) !!}, cIn,  0],
+         ['Salida Máx (Mbps)',  {!! json_encode($summary['chart_out_max']) !!}, cOut, 1]].forEach(function (m) {
+            datasets.push({
+                type: 'line',
+                label: m[0], data: m[1],
+                borderColor: m[2] + 'cc', backgroundColor: m[2] + '1a',
+                borderWidth: 1.5, borderDash: [5, 3],
+                pointRadius: 0, pointHoverRadius: 4,
+                tension: 0.35, cubicInterpolationMode: 'monotone',
+                fill: { target: m[3] },
+                order: 2, spanGaps: true,
+            });
+        });
         @if((int)($summary['contract_bandwidth'] ?? 0) > 0)
         datasets.push({
             type: 'line', /* always a line regardless of global chart type */
-            label: 'Umbral Contratado',
+            label: 'Umbral Contratado ({{ number_format((int)$summary['contract_bandwidth'], 0, '.', ',') }} Mbps)',
             data:  Array(labels.length).fill({{ (int)$summary['contract_bandwidth'] }}),
             borderColor: cThres,
             backgroundColor: 'transparent',
@@ -1148,6 +1243,8 @@ $(function () {
                 Chart.register(window.ChartAnnotation);
             }
 
+            Chart.defaults.color = '#344054';           /* ejes y leyenda legibles en capturas */
+            Chart.defaults.font.weight = '500';
             var chartType = '{{ $chart_type ?? 'line' }}';
             var isBar     = chartType === 'bar' || chartType === 'bar_h';
             var isBarH    = chartType === 'bar_h';
@@ -1181,11 +1278,19 @@ $(function () {
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 12, padding: 16, font: { size: 12 } } },
+                        legend: { position: 'top', labels: {
+                            boxWidth: 12, boxHeight: 12, padding: 16, font: { size: 12 }, usePointStyle: true, pointStyle: 'rectRounded',
+                            sort: function (a, b) {
+                                var rank = function (t) { return t.indexOf('Entrada Prom') === 0 ? 0 : t.indexOf('Entrada Máx') === 0 ? 1
+                                    : t.indexOf('Salida Prom') === 0 ? 2 : t.indexOf('Salida Máx') === 0 ? 3 : 4; };
+                                return rank(a.text) - rank(b.text);
+                            }
+                        } },
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
-                                    return ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y !== null ? ctx.parsed.y : '—') + ' ' + yLabel;
+                                    var v = ctx.parsed.y;
+                                    return ' ' + ctx.dataset.label + ': ' + (v !== null ? v.toLocaleString('es-PE', { maximumFractionDigits: 2 }) : '—') + ' ' + yLabel;
                                 }
                             }
                         },
@@ -1200,13 +1305,16 @@ $(function () {
                                 },
                                 font: { size: 11 }
                             },
-                            grid: { color: '#e5e7eb' }
+                            grid: { color: '#d0d5dd' }
                         },
                         y: {
                             beginAtZero: true,
                             title: { display: true, text: yLabel, font: { size: 11 } },
-                            ticks: { font: { size: 11 } },
-                            grid: { color: '#e5e7eb' }
+                            ticks: {
+                                font: { size: 11 },
+                                callback: function (v) { return v.toLocaleString('es-PE'); }
+                            },
+                            grid: { color: '#d0d5dd' }
                         }
                     }
                 }

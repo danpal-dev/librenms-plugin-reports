@@ -1,0 +1,12 @@
+*.pdf
+*.xlsx
+*.csv
+exports_tmp/
+tmp/
+audit_log_*.log
+*.log
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
